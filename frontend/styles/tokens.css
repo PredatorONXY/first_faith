@@ -1,0 +1,86 @@
+/*
+  First Faith — Design Tokens
+  Derived from brand assets: logo, product packaging, and brochure.
+  Palette: warm cream/blush backgrounds, deep burgundy accent, dark
+  charcoal typography — matching the packaging's cream/pink/burgundy
+  banding and the logo's sharp dark wordmark.
+*/
+
+:root {
+  /* ---- Color: base ---- */
+  --ff-cream: #FBF3EC;         /* primary background */
+  --ff-blush: #F4DCD3;         /* secondary background / section alternation */
+  --ff-blush-soft: #F9E9E2;    /* card backgrounds on cream */
+  --ff-charcoal: #201C1B;      /* primary text, matches logo ink */
+  --ff-charcoal-soft: #55504D; /* secondary/body text */
+  --ff-burgundy: #7C2836;      /* primary accent — CTAs, dividers, links */
+  --ff-burgundy-dark: #5E1E29; /* hover/active state for burgundy */
+  --ff-stone: #E4D6CC;         /* borders, hairlines */
+  --ff-white: #FFFFFF;
+
+  /* ---- Color: semantic ---- */
+  --ff-bg: var(--ff-cream);
+  --ff-bg-alt: var(--ff-blush);
+  --ff-surface: var(--ff-white);
+  --ff-text: var(--ff-charcoal);
+  --ff-text-muted: var(--ff-charcoal-soft);
+  --ff-border: var(--ff-stone);
+  --ff-accent: var(--ff-burgundy);
+  --ff-accent-hover: var(--ff-burgundy-dark);
+  --ff-success: #4A7A5E;
+  --ff-error: #A23B3B;
+
+  /* ---- Typography ---- */
+  /* Display: an editorial serif for headings — echoes the sharp,
+     high-contrast character of the FF wordmark. Body: a clean, humanist
+     sans for legibility at small sizes across product copy. */
+  --ff-font-display: 'Fraunces', Georgia, serif;
+  --ff-font-body: 'Inter', -apple-system, sans-serif;
+
+  --ff-text-xs: 0.75rem;
+  --ff-text-sm: 0.875rem;
+  --ff-text-base: 1rem;
+  --ff-text-lg: 1.125rem;
+  --ff-text-xl: 1.375rem;
+  --ff-text-2xl: 1.75rem;
+  --ff-text-3xl: 2.25rem;
+  --ff-text-4xl: 3rem;
+  --ff-text-5xl: 3.75rem;
+
+  --ff-leading-tight: 1.15;
+  --ff-leading-normal: 1.5;
+  --ff-leading-relaxed: 1.7;
+
+  /* ---- Spacing scale (4px base) ---- */
+  --ff-space-1: 0.25rem;
+  --ff-space-2: 0.5rem;
+  --ff-space-3: 0.75rem;
+  --ff-space-4: 1rem;
+  --ff-space-6: 1.5rem;
+  --ff-space-8: 2rem;
+  --ff-space-12: 3rem;
+  --ff-space-16: 4rem;
+  --ff-space-24: 6rem;
+  --ff-space-32: 8rem;
+
+  /* ---- Radius — deliberately restrained, not the rounded-SaaS-card default ---- */
+  --ff-radius-sm: 2px;
+  --ff-radius-md: 4px;
+  --ff-radius-lg: 8px;
+
+  /* ---- Shadow — one level only, used sparingly ---- */
+  --ff-shadow-card: 0 1px 3px rgba(32, 28, 27, 0.06);
+
+  /* ---- Borders ---- */
+  --ff-border-width: 1px;
+
+  /* ---- Layout ---- */
+  --ff-max-width: 1280px;
+  --ff-container-padding: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --ff-container-padding: 2.5rem;
+  }
+}

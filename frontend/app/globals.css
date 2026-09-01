@@ -1,0 +1,45 @@
+@import '../styles/tokens.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background-color: var(--ff-bg);
+  color: var(--ff-text);
+  font-family: var(--ff-font-body);
+  line-height: var(--ff-leading-normal);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--ff-font-display);
+  line-height: var(--ff-leading-tight);
+  font-weight: 500;
+  color: var(--ff-text);
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Visible keyboard focus everywhere — accessibility floor, not optional. */
+:focus-visible {
+  outline: 2px solid var(--ff-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
