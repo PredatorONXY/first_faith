@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { Product } from '../../types/product';
 
 export function ProductCard({ product }: { product: Product }) {
-  const image = product.images[0];
-  const variant = product.variants.find((v) => v.isDefault) ?? product.variants[0];
+  const image = product.images?.[0];
+  const variant = product.variants?.find((v) => v.isDefault) ?? product.variants?.[0];
 
   return (
     <Link
@@ -20,7 +20,11 @@ export function ProductCard({ product }: { product: Product }) {
             className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
             sizes="(min-width: 768px) 25vw, 50vw"
           />
-        ) : null}
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-sm text-charcoal-soft">
+            Product image
+          </div>
+        )}
       </div>
       <div className="p-5">
         <h3 className="font-display text-lg text-charcoal">{product.name}</h3>

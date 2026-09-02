@@ -1,11 +1,14 @@
+import Image from 'next/image';
 import { getPublishedProducts } from '../../services/products';
 import { ProductCard } from '../../components/product/ProductCard';
 import { Button } from '../../components/ui/Button';
+import heroImage from '../../img/IMG-20260831-WA0012.jpg';
+import productImage from '../../img/IMG-20260831-WA0018.jpg';
 
 const APPROACH = [
   {
     title: 'Botanicals',
-    body: 'Inspired by nature and selected for their skin-conditioning properties.',
+    body: 'Ingredients selected for their skin-conditioning properties.',
   },
   {
     title: 'Actives',
@@ -18,81 +21,115 @@ const APPROACH = [
 ];
 
 export default async function HomePage() {
-  // Falls back to an empty catalog gracefully if the backend/DB isn't
-  // seeded yet — the page still renders instead of erroring out.
   const products = await getPublishedProducts().catch(() => []);
+  const featuredProducts = products.slice(0, 4);
 
   return (
     <>
-      {/* Hero — the brand's own words carry it; no invented copy. */}
-      <section className="border-b border-stone bg-cream">
-        <div className="mx-auto grid max-w-site items-center gap-12 px-6 py-20 md:grid-cols-2 md:px-10 md:py-32">
-          <div>
-            <p className="text-sm uppercase tracking-wide text-burgundy">Beyond Just Skincare</p>
-            <h1 className="mt-4 font-display text-4xl leading-tight text-charcoal md:text-5xl">
-              Perfect blend of nature &amp; science
-            </h1>
-            <p className="mt-6 max-w-md text-charcoal-soft">
+      <section className="hero-section">
+        <div className="site-shell hero-grid">
+          <div className="hero-copy">
+            <span className="brand-pill">Beyond Just Skincare</span>
+            <h1 className="hero-title">Perfect blend of nature &amp; science</h1>
+            <p className="hero-text">
               Thoughtfully selected botanical ingredients. Purposeful cosmetic actives.
               Modern formulations, built without compromise.
             </p>
-            <div className="mt-8">
+            <div className="hero-actions">
               <Button href="/shop">Shop the collection</Button>
+              <Button href="/ingredients" variant="outline">Explore ingredients</Button>
             </div>
           </div>
-          <div className="aspect-[4/5] rounded-md bg-blush-soft" aria-hidden />
+
+          <div className="premium-card hero-panel">
+            <div className="hero-media-wrap">
+              <Image
+                src={heroImage}
+                alt="First Faith skincare product display"
+                fill
+                priority
+                className="object-cover"
+                sizes="(min-width: 768px) 50vw, 100vw"
+              />
+              <div className="hero-overlay">
+                <span className="hero-overlay-badge">Botanicals</span>
+                <span className="hero-overlay-label">Mindfully made</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Featured products */}
-      <section className="mx-auto max-w-site px-6 py-20 md:px-10">
-        <div className="mb-10 flex items-end justify-between">
-          <h2 className="font-display text-3xl text-charcoal">Our collection</h2>
+      <section className="site-shell section-block">
+        <div className="section-header">
+          <div>
+            <p className="section-kicker">Shop the essentials</p>
+            <h2 className="section-title">Our collection</h2>
+          </div>
           <Button variant="ghost" href="/shop">View all</Button>
         </div>
-        {products.length > 0 ? (
-          <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
-            {products.slice(0, 4).map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-charcoal-soft">Products will appear here once added in the admin dashboard.</p>
-        )}
-      </section>
 
-      {/* Our approach */}
-      <section className="border-y border-stone bg-blush">
-        <div className="mx-auto max-w-site px-6 py-20 md:px-10">
-          <h2 className="font-display text-3xl text-charcoal">Our approach</h2>
-          <div className="mt-10 grid gap-10 md:grid-cols-3">
-            {APPROACH.map((item) => (
-              <div key={item.title} className="border-t border-charcoal pt-5">
-                <h3 className="font-display text-xl text-charcoal">{item.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">{item.body}</p>
-              </div>
-            ))}
+        <div className="product-grid">
+          <div className="product-shell">
+            <div className="product-image-wrap">
+              <Image
+                src={productImage}
+                alt="Body butter product"
+                fill
+                className="object-cover"
+                sizes="(min-width: 768px) 25vw, 50vw"
+              />
+            </div>
+            <div className="product-copy">
+              <h3 className="product-name">Body Butter</h3>
+              <p className="product-tagline">Nourishing plant-based moisture for daily rituals.</p>
+            </div>
           </div>
+
+          {featuredProducts.length > 0 ? (
+            featuredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))
+          ) : (
+            <div className="product-shell product-copy fallback-card">
+              Products will appear here once added in the admin dashboard.
+            </div>
+          )}
         </div>
       </section>
 
-      {/* Newsletter / CTA */}
-      <section className="mx-auto max-w-site px-6 py-20 md:px-10">
-        <div className="rounded-md border border-stone bg-blush-soft p-10 text-center md:p-16">
-          <h2 className="font-display text-2xl text-charcoal md:text-3xl">
-            Stay close to First Faith
-          </h2>
-          <p className="mx-auto mt-3 max-w-md text-charcoal-soft">
-            Be the first to know about new formulations and restocks.
+      <section className="story-band">
+        <div className="site-shell story-layout">
+          <p className="section-kicker">Beyond Just Skincare.</p>
+          <h2 className="section-title">Thoughtful formulas for everyday rituals.</h2>
+          <p>
+            Rooted in nature and shaped by science, First Faith brings together mindful ingredients,
+            elegant textures, and practical routines for skin that feels balanced, cared for, and at ease.
           </p>
-          {/* Wired to a real subscribe endpoint in a later phase */}
-          <form className="mx-auto mt-6 flex max-w-sm gap-2">
-            <input
-              type="email"
-              required
-              placeholder="Your email"
-              className="w-full rounded-sm border border-stone bg-white px-4 py-3 text-sm"
-            />
+        </div>
+      </section>
+
+      <section className="site-shell section-block">
+        <div className="section-header compact-header">
+          <h2 className="section-title">Our approach</h2>
+        </div>
+        <div className="feature-grid">
+          {APPROACH.map((item) => (
+            <article key={item.title} className="feature-card">
+              <span className="feature-badge">0{APPROACH.indexOf(item) + 1}</span>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="site-shell section-block">
+        <div className="newsletter-box">
+          <h2 className="section-title newsletter-title">Stay close to First Faith</h2>
+          <p className="newsletter-copy">Be the first to know about new formulations and restocks.</p>
+          <form className="newsletter-form">
+            <input type="email" required placeholder="Your email" aria-label="Your email" />
             <Button type="submit">Subscribe</Button>
           </form>
         </div>

@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
-import { getSiteSettings } from '../../../services/settings';
+import { getSiteSettings, type SiteSettings } from '../../../services/settings';
 
 export const metadata: Metadata = {
   title: 'Contact',
 };
 
 export default async function ContactPage() {
-  const settings = await getSiteSettings().catch(() => ({}));
+  const settings: Partial<SiteSettings> = await getSiteSettings().catch(() => ({}));
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-20 md:px-10">
