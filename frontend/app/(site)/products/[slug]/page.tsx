@@ -56,24 +56,28 @@ export default async function ProductPage({ params }: Props) {
       {/* eslint-disable-next-line react/no-danger */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <div className="grid gap-12 md:grid-cols-2">
-        <div className="relative aspect-square overflow-hidden rounded-md bg-blush-soft">
-          {product.images[0] && (
-            <Image
-              src={product.images[0].url}
-              alt={product.images[0].altText ?? product.name}
-              fill
-              className="object-cover"
-              priority
-            />
-          )}
+      <div className="product-page-shell">
+        <div className="product-gallery-card premium-card">
+          <div className="product-gallery-wrap">
+            {product.images[0] && (
+              <Image
+                src={product.images[0].url}
+                alt={product.images[0].altText ?? product.name}
+                fill
+                className="object-cover"
+                priority
+                sizes="(min-width: 768px) 45vw, 100vw"
+              />
+            )}
+          </div>
         </div>
 
-        <div>
+        <div className="product-info-card">
+          <p className="section-kicker product-section-kicker">First Faith</p>
           <h1 className="font-display text-3xl text-charcoal md:text-4xl">{product.name}</h1>
           {product.tagline && <p className="mt-2 text-charcoal-soft">{product.tagline}</p>}
 
-          <div className="mt-6 flex items-baseline gap-3">
+          <div className="product-price-row">
             {variant ? (
               <span className="text-2xl font-medium text-burgundy">
                 ₹{Number(variant.price).toLocaleString('en-IN')}
@@ -85,23 +89,21 @@ export default async function ProductPage({ params }: Props) {
           </div>
 
           {product.shortDescription && (
-            <p className="mt-6 leading-relaxed text-charcoal-soft">{product.shortDescription}</p>
+            <p className="product-description">{product.shortDescription}</p>
           )}
 
-          <div className="mt-8 flex gap-3">
+          <div className="product-actions">
             <Button>Add to cart</Button>
             <Button variant="outline">Buy now</Button>
           </div>
 
           {heroIngredients.length > 0 && (
-            <div className="mt-10 border-t border-stone pt-6">
-              <h2 className="text-sm font-medium uppercase tracking-wide text-charcoal">
-                Hero ingredients
-              </h2>
-              <ul className="mt-3 space-y-2">
+            <div className="product-meta-block">
+              <h2 className="product-meta-title">Hero ingredients</h2>
+              <ul className="ingredient-list">
                 {heroIngredients.map((i) => (
-                  <li key={i.ingredient.id} className="text-sm text-charcoal-soft">
-                    <span className="font-medium text-charcoal">{i.ingredient.name}</span>
+                  <li key={i.ingredient.id}>
+                    <span>{i.ingredient.name}</span>
                     {i.ingredient.description ? ` — ${i.ingredient.description}` : ''}
                   </li>
                 ))}
@@ -110,14 +112,12 @@ export default async function ProductPage({ params }: Props) {
           )}
 
           {powerIngredients.length > 0 && (
-            <div className="mt-6">
-              <h2 className="text-sm font-medium uppercase tracking-wide text-charcoal">
-                Power ingredients
-              </h2>
-              <ul className="mt-3 space-y-2">
+            <div className="product-meta-block">
+              <h2 className="product-meta-title">Power ingredients</h2>
+              <ul className="ingredient-list">
                 {powerIngredients.map((i) => (
-                  <li key={i.ingredient.id} className="text-sm text-charcoal-soft">
-                    <span className="font-medium text-charcoal">{i.ingredient.name}</span>
+                  <li key={i.ingredient.id}>
+                    <span>{i.ingredient.name}</span>
                     {i.ingredient.description ? ` — ${i.ingredient.description}` : ''}
                   </li>
                 ))}
@@ -126,16 +126,16 @@ export default async function ProductPage({ params }: Props) {
           )}
 
           {product.howToUse && (
-            <div className="mt-6">
-              <h2 className="text-sm font-medium uppercase tracking-wide text-charcoal">How to use</h2>
-              <p className="mt-3 text-sm leading-relaxed text-charcoal-soft">{product.howToUse}</p>
+            <div className="product-meta-block">
+              <h2 className="product-meta-title">How to use</h2>
+              <p className="product-meta-copy">{product.howToUse}</p>
             </div>
           )}
 
           {product.suitableSkinTypes && (
-            <div className="mt-6">
-              <h2 className="text-sm font-medium uppercase tracking-wide text-charcoal">Suitable for</h2>
-              <p className="mt-3 text-sm text-charcoal-soft">{product.suitableSkinTypes}</p>
+            <div className="product-meta-block">
+              <h2 className="product-meta-title">Suitable for</h2>
+              <p className="product-meta-copy">{product.suitableSkinTypes}</p>
             </div>
           )}
         </div>
