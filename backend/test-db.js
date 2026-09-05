@@ -8,7 +8,7 @@ const client = new Client({
 
 async function test() {
   try {
-    console.log('Connecting to Supabase PostgreSQL...');
+    console.log('Connecting to PostgreSQL...');
     await client.connect();
 
     const result = await client.query('SELECT NOW()');

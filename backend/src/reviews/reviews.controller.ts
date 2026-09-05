@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from
 import { Request } from 'express';
 import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { ReviewStatus, Role } from '@prisma/client';
-import { SupabaseAuthGuard } from '../common/guards/supabase-auth.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ReviewsService } from './reviews.service';
@@ -41,20 +41,20 @@ export class ReviewsController {
   }
 
   @Post()
-  @UseGuards(SupabaseAuthGuard)
+  @UseGuards(JwtAuthGuard)
   create(@Req() req: Request & { user: { id: string } }, @Body() dto: CreateReviewDto) {
     return this.reviewsService.create(req.user.id, dto.productId, dto.rating, dto.title, dto.body);
   }
 
   @Get('admin/all')
-  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   findAllForAdmin() {
     return this.reviewsService.findAllForAdmin();
   }
 
   @Patch(':id/status')
-  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   moderate(@Param('id') id: string, @Body() dto: ModerateReviewDto) {
     return this.reviewsService.setStatus(id, dto.status);

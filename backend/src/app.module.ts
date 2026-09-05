@@ -14,6 +14,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { SettingsModule } from './settings/settings.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { StorageModule } from './common/storage/storage.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     ReviewsModule,
     CouponsModule,
     SettingsModule,
+    StorageModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: HttpExceptionFilter },

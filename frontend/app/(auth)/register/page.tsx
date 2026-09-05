@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createBrowserClient } from '@supabase/ssr';
-import { apiFetch } from '../../../lib/api';
+import { apiFetch, setAccessToken } from '../../../lib/api';
 import { Button } from '../../../components/ui/Button';
+import Image from 'next/image';
+import heroImage from '../../../img/IMG-20260831-WA0012.jpg';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -14,41 +15,38 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
-
-    if (signUpError || !data.user) {
+    try {
+      const result = await apiFetch<{ accessToken: string }>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, fullName }),
+      });
+      setAccessToken(result.accessToken);
+      router.push('/account');
+    } catch (authError) {
       setLoading(false);
-      setError(signUpError?.message ?? 'Something went wrong. Please try again.');
+      setError(authError instanceof Error ? authError.message : 'Unable to create an account');
       return;
     }
 
-    // Mirror the new identity into our own User table (role always
-    // defaults to CUSTOMER server-side — see AuthService.syncUser).
-    await apiFetch('/auth/sync', {
-      method: 'POST',
-      body: JSON.stringify({ supabaseAuthId: data.user.id, email, fullName }),
-    }).catch(() => null);
-
     setLoading(false);
-    router.push('/account');
   }
 
   return (
-    <div className="mx-auto max-w-sm px-6 py-24">
-      <h1 className="font-display text-3xl text-charcoal">Create an account</h1>
+    <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-site md:grid-cols-2">
+      <div className="relative flex items-center px-6 py-16 md:order-2 md:px-16 lg:px-24">
+        <div className="w-full max-w-md">
+          <p className="eyebrow">Create your account</p>
+          <h1 className="mt-3 font-display text-5xl leading-none text-charcoal">Begin your ritual.</h1>
+          <p className="mt-5 text-sm leading-7 text-charcoal-soft">Thoughtfully formulated care, made to become part of the everyday.</p>
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+          <form onSubmit={handleSubmit} className="mt-10 space-y-6">
         <div>
           <label htmlFor="fullName" className="text-sm font-medium text-charcoal">Full name</label>
           <input
@@ -56,7 +54,7 @@ export default function RegisterPage() {
             required
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            className="mt-1 w-full rounded-sm border border-stone bg-white px-4 py-3 text-sm"
+            className="mt-2 w-full border-0 border-b border-stone bg-transparent px-0 py-3 text-sm outline-none transition-colors focus:border-burgundy"
           />
         </div>
         <div>
@@ -67,20 +65,25 @@ export default function RegisterPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-sm border border-stone bg-white px-4 py-3 text-sm"
+            className="mt-2 w-full border-0 border-b border-stone bg-transparent px-0 py-3 text-sm outline-none transition-colors focus:border-burgundy"
           />
         </div>
         <div>
           <label htmlFor="password" className="text-sm font-medium text-charcoal">Password</label>
+          <div className="relative">
           <input
             id="password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             required
             minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-sm border border-stone bg-white px-4 py-3 text-sm"
+            className="mt-2 w-full border-0 border-b border-stone bg-transparent px-0 py-3 pr-16 text-sm outline-none transition-colors focus:border-burgundy"
           />
+          <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-0 top-3 text-[0.62rem] uppercase tracking-[0.14em] text-charcoal-soft hover:text-burgundy">
+            {showPassword ? 'Hide' : 'Show'}
+          </button>
+          </div>
         </div>
 
         {error && <p className="text-sm text-red-700">{error}</p>}
@@ -90,9 +93,19 @@ export default function RegisterPage() {
         </Button>
       </form>
 
-      <p className="mt-6 text-sm text-charcoal-soft">
-        Already have an account? <Link href="/login" className="text-burgundy hover:text-burgundy-dark">Log in</Link>
+      <p className="mt-8 text-sm text-charcoal-soft">
+        Already have an account? <Link href="/login" className="text-burgundy underline decoration-burgundy/30 underline-offset-4 hover:text-burgundy-dark">Sign in</Link>
       </p>
+        </div>
+      </div>
+      <div className="auth-image relative overflow-hidden md:order-1">
+        <Image src={heroImage} alt="First Faith skincare collection" fill priority className="object-cover" sizes="50vw" />
+        <div className="absolute inset-0 bg-gradient-to-t from-charcoal/65 via-transparent to-transparent" />
+        <div className="absolute bottom-12 left-12 max-w-sm text-white">
+          <p className="text-[0.65rem] uppercase tracking-[0.22em] text-white/70">Perfect blend of nature &amp; science</p>
+          <p className="mt-3 font-display text-4xl leading-tight">Care that feels like a ceremony.</p>
+        </div>
+      </div>
     </div>
   );
 }

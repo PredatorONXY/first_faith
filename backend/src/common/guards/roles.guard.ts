@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { Role } from '@prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 
-// Runs after SupabaseAuthGuard. Reads the role attached to request.user
+// Runs after JwtAuthGuard. Reads the role attached to request.user
 // (sourced from the DB, not the client) and checks it against @Roles(...).
 @Injectable()
 export class RolesGuard implements CanActivate {

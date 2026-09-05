@@ -4,6 +4,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import brandMark from '../../img/IMG-20260831-WA0007.jpg';
+import { usePathname } from 'next/navigation';
+import { getAccessToken } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
 const NAV_LINKS = [
   { href: '/shop', label: 'Shop' },
@@ -15,6 +18,19 @@ const NAV_LINKS = [
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
+  const [signedIn, setSignedIn] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
+
+  useEffect(() => {
+    setSignedIn(Boolean(getAccessToken()));
+    const sessionToken = window.localStorage.getItem('ff_cart_session');
+    if (sessionToken) {
+      apiFetch<{ items: Array<{ quantity: number }> }>(`/cart?sessionToken=${sessionToken}`, { next: { revalidate: 0 } })
+        .then((cart) => setCartCount(cart.items.reduce((total, item) => total + item.quantity, 0)))
+        .catch(() => setCartCount(0));
+    }
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 8);
@@ -41,15 +57,17 @@ export function Header() {
 
         <nav className="desktop-nav" aria-label="Primary navigation">
           {NAV_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="nav-link">
+            <Link key={link.href} href={link.href} className={`nav-link ${pathname.startsWith(link.href) ? 'is-active' : ''}`}>
               {link.label}
             </Link>
           ))}
         </nav>
 
         <div className="header-actions">
-          <Link href="/account" className="header-action-link">Account</Link>
-          <Link href="/cart" className="header-action-link">Cart</Link>
+          <Link href="/account" className={`header-action-link ${pathname.startsWith('/account') ? 'is-active' : ''}`}>
+            {signedIn ? 'My account' : 'Account'}
+          </Link>
+          <Link href="/cart" className={`header-action-link ${pathname.startsWith('/cart') ? 'is-active' : ''}`}>Cart{cartCount > 0 ? ` (${cartCount})` : ''}</Link>
 
           <button
             type="button"

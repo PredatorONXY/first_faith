@@ -18,7 +18,7 @@ class UpdateCartItemDto {
 }
 
 // Cart identity: an authenticated request would normally carry req.user.id
-// (via SupabaseAuthGuard, applied where login is required at checkout);
+// (via JwtAuthGuard, applied where login is required at checkout);
 // guest carts are identified by an opaque `sessionToken` query param that
 // the frontend generates and persists in a cookie. Both paths are kept
 // deliberately unauthenticated at the cart-read/write level so guests can

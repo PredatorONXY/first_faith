@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nest
 import { Request } from 'express';
 import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 import { OrderStatus, Role } from '@prisma/client';
-import { SupabaseAuthGuard } from '../common/guards/supabase-auth.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { OrdersService } from './orders.service';
@@ -27,7 +27,7 @@ type AuthedRequest = Request & { user: { id: string } };
 // intentionally not available to guests, since an Order must be tied to
 // a real account for order history and support.
 @Controller('orders')
-@UseGuards(SupabaseAuthGuard)
+@UseGuards(JwtAuthGuard)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 

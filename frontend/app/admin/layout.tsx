@@ -12,7 +12,7 @@ const ADMIN_NAV = [
 // NOTE: this layout provides navigation only. The actual access control
 // happens twice: (1) middleware/client check redirects non-admins away from
 // /admin/* for UX, and (2) every backend endpoint under here is guarded by
-// SupabaseAuthGuard + RolesGuard(ADMIN, SUPER_ADMIN) — the frontend check
+// JwtAuthGuard + RolesGuard(ADMIN, SUPER_ADMIN) — the frontend check
 // is a convenience, not the security boundary.
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (

@@ -1,5 +1,8 @@
 @import url('https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css');
 @import '../styles/tokens.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --ff-site-shell: 1280px;
@@ -18,6 +21,63 @@ body {
   color: var(--ff-text);
   font-family: var(--ff-font-body), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: var(--ff-leading-normal);
+}
+
+/* Editorial polish shared across the storefront. */
+.page-intro {
+  padding: 5.5rem 0 3.5rem;
+  border-bottom: 1px solid rgba(32, 28, 27, 0.1);
+}
+
+.eyebrow {
+  color: var(--ff-burgundy);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.display-title {
+  max-width: 850px;
+  margin-top: 0.9rem;
+  font-family: var(--ff-font-display), Georgia, serif;
+  font-size: clamp(3rem, 8vw, 7.5rem);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 0.93;
+}
+
+.editorial-rule {
+  height: 1px;
+  width: 100%;
+  background: rgba(32, 28, 27, 0.13);
+}
+
+.reveal {
+  animation: reveal 0.8s both;
+}
+
+.reveal-delay-1 { animation-delay: 0.12s; }
+.reveal-delay-2 { animation-delay: 0.22s; }
+
+.auth-image { display: none; }
+
+@media (min-width: 768px) {
+  .auth-image { display: block; }
+}
+
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+@media (max-width: 767px) {
+  .page-intro { padding: 3.5rem 0 2.5rem; }
+  .display-title { font-size: clamp(3rem, 16vw, 5rem); }
 }
 
 body {

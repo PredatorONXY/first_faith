@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createBrowserClient } from '@supabase/ssr';
+import { apiFetch, setAccessToken } from '../../../lib/api';
 import { Button } from '../../../components/ui/Button';
+import Image from 'next/image';
+import ritualImage from '../../../img/IMG-20260831-WA0008.jpg';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,34 +14,44 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-
-    setLoading(false);
-
-    if (signInError) {
-      setError(signInError.message);
-      return;
+    try {
+      const result = await apiFetch<{ accessToken: string }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      setAccessToken(result.accessToken);
+      router.push('/account');
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : 'Unable to log in');
+    } finally {
+      setLoading(false);
     }
-
-    router.push('/account');
   }
 
   return (
-    <div className="mx-auto max-w-sm px-6 py-24">
-      <h1 className="font-display text-3xl text-charcoal">Log in</h1>
+    <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-site md:grid-cols-2">
+      <div className="auth-image relative min-h-[680px] overflow-hidden">
+        <Image src={ritualImage} alt="First Faith skincare ritual" fill priority className="object-cover" sizes="50vw" />
+        <div className="absolute inset-0 bg-gradient-to-t from-charcoal/70 via-transparent to-transparent" />
+        <div className="absolute bottom-12 left-12 max-w-sm text-white">
+          <p className="text-[0.65rem] uppercase tracking-[0.22em] text-white/70">The First Faith ritual</p>
+          <p className="mt-3 font-display text-4xl leading-tight">A softer way to care for your skin.</p>
+        </div>
+      </div>
+      <div className="flex items-center px-6 py-16 md:px-16 lg:px-24">
+        <div className="w-full max-w-md">
+          <p className="eyebrow">Welcome back</p>
+          <h1 className="mt-3 font-display text-5xl leading-none text-charcoal">Return to your ritual.</h1>
+          <p className="mt-5 text-sm leading-7 text-charcoal-soft">Sign in to your First Faith account and keep your everyday essentials close.</p>
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+          <form onSubmit={handleSubmit} className="mt-10 space-y-6">
         <div>
           <label htmlFor="email" className="text-sm font-medium text-charcoal">Email</label>
           <input
@@ -48,31 +60,38 @@ export default function LoginPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-sm border border-stone bg-white px-4 py-3 text-sm"
+            className="mt-2 w-full border-0 border-b border-stone bg-transparent px-0 py-3 text-sm outline-none transition-colors placeholder:text-charcoal-soft/50 focus:border-burgundy"
           />
         </div>
         <div>
           <label htmlFor="password" className="text-sm font-medium text-charcoal">Password</label>
+          <div className="relative">
           <input
             id="password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-sm border border-stone bg-white px-4 py-3 text-sm"
+            className="mt-2 w-full border-0 border-b border-stone bg-transparent px-0 py-3 pr-16 text-sm outline-none transition-colors focus:border-burgundy"
           />
+          <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-0 top-3 text-[0.62rem] uppercase tracking-[0.14em] text-charcoal-soft hover:text-burgundy">
+            {showPassword ? 'Hide' : 'Show'}
+          </button>
+          </div>
         </div>
 
         {error && <p className="text-sm text-red-700">{error}</p>}
 
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? 'Logging in…' : 'Log in'}
+          {loading ? 'Signing in…' : 'Sign in'}
         </Button>
       </form>
 
-      <p className="mt-6 text-sm text-charcoal-soft">
-        New here? <Link href="/register" className="text-burgundy hover:text-burgundy-dark">Create an account</Link>
+      <p className="mt-8 text-sm text-charcoal-soft">
+        New here? <Link href="/register" className="text-burgundy underline decoration-burgundy/30 underline-offset-4 hover:text-burgundy-dark">Create an account</Link>
       </p>
+        </div>
+      </div>
     </div>
   );
 }

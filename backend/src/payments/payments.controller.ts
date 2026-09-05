@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Req, Headers, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
-import { SupabaseAuthGuard } from '../common/guards/supabase-auth.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RazorpayService } from './razorpay/razorpay.service';
 
 @Controller('payments')
@@ -8,7 +8,7 @@ export class PaymentsController {
   constructor(private readonly razorpayService: RazorpayService) {}
 
   @Post('create')
-  @UseGuards(SupabaseAuthGuard)
+  @UseGuards(JwtAuthGuard)
   createPayment(@Body('orderId') orderId: string) {
     return this.razorpayService.createPaymentOrder(orderId);
   }

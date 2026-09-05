@@ -8,14 +8,14 @@
 
 :root {
   /* ---- Color: base ---- */
-  --ff-cream: #FBF3EC;         /* primary background */
-  --ff-blush: #F4DCD3;         /* secondary background / section alternation */
-  --ff-blush-soft: #F9E9E2;    /* card backgrounds on cream */
-  --ff-charcoal: #201C1B;      /* primary text, matches logo ink */
+  --ff-cream: #F8F1EB;         /* primary background */
+  --ff-blush: #EED8CF;         /* secondary background / section alternation */
+  --ff-blush-soft: #F8E9E2;    /* card backgrounds on cream */
+  --ff-charcoal: #191716;      /* primary text, matches logo ink */
   --ff-charcoal-soft: #55504D; /* secondary/body text */
   --ff-burgundy: #7C2836;      /* primary accent — CTAs, dividers, links */
   --ff-burgundy-dark: #5E1E29; /* hover/active state for burgundy */
-  --ff-stone: #E4D6CC;         /* borders, hairlines */
+  --ff-stone: #DCCBC1;         /* borders, hairlines */
   --ff-white: #FFFFFF;
 
   /* ---- Color: semantic ---- */
@@ -66,7 +66,7 @@
   /* ---- Radius — deliberately restrained, not the rounded-SaaS-card default ---- */
   --ff-radius-sm: 2px;
   --ff-radius-md: 4px;
-  --ff-radius-lg: 8px;
+  --ff-radius-lg: 3px;
 
   /* ---- Shadow — one level only, used sparingly ---- */
   --ff-shadow-card: 0 1px 3px rgba(32, 28, 27, 0.06);

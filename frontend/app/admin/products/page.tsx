@@ -3,7 +3,7 @@ import { apiFetch } from '../../../lib/api';
 import type { Product } from '../../../types/product';
 
 // In the full build, this route is wrapped by an admin-only server check
-// (reading the Supabase session server-side and verifying role via
+// (reading the backend session server-side and verifying role via
 // GET /auth/me) before rendering — omitted here to keep this reference
 // implementation focused on the CRUD pattern itself.
 export default async function AdminProductsPage() {

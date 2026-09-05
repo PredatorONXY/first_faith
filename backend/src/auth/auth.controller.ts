@@ -1,15 +1,16 @@
 import { Controller, Post, Get, Body, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
-import { IsEmail, IsOptional, IsString, IsUUID } from 'class-validator';
-import { SupabaseAuthGuard } from '../common/guards/supabase-auth.guard';
+import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
 
-class SyncUserDto {
-  @IsUUID()
-  supabaseAuthId!: string;
-
+class CredentialsDto {
   @IsEmail()
   email!: string;
+
+  @IsString()
+  @MinLength(8)
+  password!: string;
 
   @IsOptional()
   @IsString()
@@ -20,15 +21,18 @@ class SyncUserDto {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // Called by the frontend immediately after Supabase sign-up/sign-in
-  // succeeds, so our own User table stays in sync.
-  @Post('sync')
-  sync(@Body() dto: SyncUserDto) {
-    return this.authService.syncUser(dto.supabaseAuthId, dto.email, dto.fullName);
+  @Post('register')
+  register(@Body() dto: CredentialsDto) {
+    return this.authService.register(dto.email, dto.password, dto.fullName);
+  }
+
+  @Post('login')
+  login(@Body() dto: CredentialsDto) {
+    return this.authService.login(dto.email, dto.password);
   }
 
   @Get('me')
-  @UseGuards(SupabaseAuthGuard)
+  @UseGuards(JwtAuthGuard)
   me(@Req() req: Request & { user: { id: string } }) {
     return this.authService.getProfile(req.user.id);
   }

@@ -1,5 +1,5 @@
 // First Faith — Database Schema
-// Provider: Supabase PostgreSQL, accessed via Prisma
+// PostgreSQL, accessed through Prisma by the NestJS backend
 
 generator client {
   provider = "prisma-client-js"
@@ -8,6 +8,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------------------
@@ -69,17 +70,15 @@ enum DiscountType {
 // USERS & AUTH
 // ---------------------------------------------------------------------------
 
-// Mirrors the Supabase Auth user by id (uuid from Supabase auth.users).
-// The backend is the source of truth for role; the frontend must never set it.
 model User {
-  id            String    @id @default(uuid())
-  supabaseAuthId String   @unique
-  email         String    @unique
-  fullName      String?
-  phone         String?
-  role          Role      @default(CUSTOMER)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String?
+  fullName     String?
+  phone        String?
+  role         Role      @default(CUSTOMER)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   addresses     Address[]
   orders        Order[]

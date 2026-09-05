@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nest
 import { Request } from 'express';
 import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { DiscountType, Role } from '@prisma/client';
-import { SupabaseAuthGuard } from '../common/guards/supabase-auth.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CouponsService } from './coupons.service';
@@ -45,27 +45,27 @@ export class CouponsController {
   constructor(private readonly couponsService: CouponsService) {}
 
   @Post('validate')
-  @UseGuards(SupabaseAuthGuard)
+  @UseGuards(JwtAuthGuard)
   validate(@Req() req: Request & { user: { id: string } }, @Body() dto: ValidateCouponDto) {
     return this.couponsService.validate(dto.code, req.user.id, dto.subtotal);
   }
 
   @Get()
-  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   findAll() {
     return this.couponsService.findAllForAdmin();
   }
 
   @Post()
-  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   create(@Body() dto: CreateCouponDto) {
     return this.couponsService.create(dto);
   }
 
   @Patch(':id')
-  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   update(@Param('id') id: string, @Body() dto: Record<string, unknown>) {
     return this.couponsService.update(id, dto as any);

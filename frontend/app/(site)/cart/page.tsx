@@ -8,16 +8,16 @@ export default function CartPage() {
   const { cart, loading, updateQuantity, removeItem, subtotal } = useCart();
 
   if (loading) {
-    return <div className="mx-auto max-w-site px-6 py-16 md:px-10 text-charcoal-soft">Loading cart…</div>;
+    return <div className="mx-auto max-w-site px-6 py-24 md:px-10 text-charcoal-soft">Preparing your ritual…</div>;
   }
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="mx-auto max-w-site px-6 py-20 text-center md:px-10">
-        <div className="empty-cart-box">
-          <p className="section-kicker">Your bag</p>
-          <h1 className="font-display text-2xl text-charcoal">Your cart is empty</h1>
-          <p className="mt-2 text-charcoal-soft">Explore the collection and find something you'll love.</p>
+      <div className="mx-auto max-w-site px-6 py-28 text-center md:px-10">
+        <div className="mx-auto max-w-lg">
+          <p className="eyebrow">Your ritual</p>
+          <h1 className="mt-4 font-display text-6xl leading-none text-charcoal">Your bag is waiting.</h1>
+          <p className="mt-5 text-charcoal-soft">Explore the collection and find something to make space for.</p>
           <div className="mt-6">
             <Button href="/shop">Shop now</Button>
           </div>
@@ -27,17 +27,16 @@ export default function CartPage() {
   }
 
   return (
-    <div className="mx-auto max-w-site px-6 py-16 md:px-10">
+    <div className="mx-auto max-w-site px-6 py-12 md:px-10 md:py-20">
+      <div className="mb-12"><p className="eyebrow">Your ritual</p><h1 className="mt-3 font-display text-6xl text-charcoal">Shopping bag</h1></div>
       <div className="cart-layout">
-        <section className="cart-items-panel premium-card">
-          <p className="section-kicker product-section-kicker">Shopping bag</p>
-          <h1 className="font-display text-3xl text-charcoal">Your cart</h1>
+        <section className="border-t border-stone">
 
-          <div className="cart-item-list">
+          <div className="cart-item-list mt-2">
             {cart.items.map((item) => (
               <div key={item.id} className="cart-item-row">
                 <div>
-                  <p className="font-medium text-charcoal">{item.variant.product.name}</p>
+                  <p className="font-display text-xl text-charcoal">{item.variant.product.name}</p>
                   <p className="text-sm text-charcoal-soft">{item.variant.sizeLabel}</p>
                 </div>
 
@@ -75,7 +74,7 @@ export default function CartPage() {
           </div>
         </section>
 
-        <aside className="cart-summary premium-card">
+        <aside className="cart-summary border-t border-stone bg-blush/45 p-6 md:p-8">
           <p className="section-kicker product-section-kicker">Summary</p>
           <div className="summary-row">
             <span>Subtotal</span>
