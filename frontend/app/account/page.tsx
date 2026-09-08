@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { apiFetch, clearAccessToken, getAccessToken } from '../../lib/api';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { apiFetch, clearAccessToken, getAccessToken, setAccessToken } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 
 type Profile = {
@@ -35,14 +35,29 @@ function formatAmount(value: string | number) {
   return `₹${Number(value).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 }
 
-export default function AccountPage() {
+function AccountPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const tokenFromQuery = searchParams.get('token');
+    const googleError = searchParams.get('googleError');
+
+    if (tokenFromQuery) {
+      setAccessToken(tokenFromQuery);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('token');
+      router.replace(params.toString() ? `/account?${params.toString()}` : '/account');
+    }
+
+    if (googleError) {
+      setError(decodeURIComponent(googleError));
+    }
+
     if (!getAccessToken()) {
       setLoading(false);
       return;
@@ -76,7 +91,7 @@ export default function AccountPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [router, searchParams]);
 
   function handleLogout() {
     clearAccessToken();
@@ -163,5 +178,13 @@ export default function AccountPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function AccountPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-site px-6 py-24 text-charcoal-soft md:px-10">Preparing your account…</div>}>
+      <AccountPageContent />
+    </Suspense>
   );
 }

@@ -48,7 +48,7 @@ export default async function AdminProductsPage() {
                   {variant ? `₹${Number(variant.price).toLocaleString('en-IN')}` : 'Not set'}
                 </td>
                 <td className="py-3 text-charcoal-soft">{variant?.inventory?.stockQuantity ?? 0}</td>
-                <td className="py-3 text-charcoal-soft">{(product as any).status ?? 'DRAFT'}</td>
+                <td className="py-3 text-charcoal-soft">{product.status ?? 'DRAFT'}</td>
               </tr>
             );
           })}

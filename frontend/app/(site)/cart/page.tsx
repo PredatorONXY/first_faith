@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCart } from '../../../hooks/useCart';
 import { Button } from '../../../components/ui/Button';
 

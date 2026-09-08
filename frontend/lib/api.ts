@@ -22,15 +22,16 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const { accessToken = getAccessToken(), ...init } = options;
 
+  const { next, ...restInit } = init;
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
+    ...restInit,
     headers: {
       'Content-Type': 'application/json',
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      ...init.headers,
+      ...restInit.headers,
     },
-    // Public catalog data can be cached; callers can override per-request.
-    next: { revalidate: 60, ...(init as any).next },
+    next: { revalidate: 60, ...(next ?? {}) },
   });
 
   if (!res.ok) {

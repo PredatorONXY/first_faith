@@ -1,10 +1,20 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { getPrimaryProductImage } from '../../lib/productImages';
+import { getProductContent } from '../../lib/productContent';
 import { Product } from '../../types/product';
 
 export function ProductCard({ product }: { product: Product }) {
-  const image = product.images?.[0];
+  const mappedImage = getPrimaryProductImage(product.slug);
+  const image = mappedImage ?? (product.images?.[0] ? {
+    src: product.images[0].url,
+    alt: product.images[0].altText ?? product.name,
+  } : null);
   const variant = product.variants?.find((v) => v.isDefault) ?? product.variants?.[0];
+  const content = getProductContent(product.slug) ?? null;
+  const displayName = content?.name ?? product.name;
+  const displayTagline = content?.tagline ?? product.tagline;
+  const displaySize = content?.sizeLabel ?? variant?.sizeLabel;
 
   return (
     <Link
@@ -14,8 +24,8 @@ export function ProductCard({ product }: { product: Product }) {
       <div className="relative aspect-[4/5] overflow-hidden bg-blush-soft">
         {image ? (
           <Image
-            src={image.url}
-            alt={image.altText ?? product.name}
+            src={image.src}
+            alt={image.alt}
             fill
             className="object-cover transition-transform duration-700 group-hover:scale-[1.045]"
             sizes="(min-width: 768px) 25vw, 50vw"
@@ -28,12 +38,10 @@ export function ProductCard({ product }: { product: Product }) {
       </div>
       <div className="p-5 md:p-6">
         <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-burgundy">Essential ritual</p>
-        <h3 className="mt-2 font-display text-xl text-charcoal">{product.name}</h3>
-        {product.tagline && (
-          <p className="mt-1 text-sm text-charcoal-soft">{product.tagline}</p>
-        )}
+        <h3 className="mt-2 font-display text-xl text-charcoal">{displayName}</h3>
+        {displayTagline && <p className="mt-1 text-sm text-charcoal-soft">{displayTagline}</p>}
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-sm text-charcoal-soft">{variant?.sizeLabel}</span>
+          <span className="text-sm text-charcoal-soft">{displaySize}</span>
           {variant ? (
             <span className="font-medium text-burgundy">₹{Number(variant.price).toLocaleString('en-IN')}</span>
           ) : (

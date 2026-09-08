@@ -20,6 +20,8 @@ export interface ProductImage {
   altText: string | null;
 }
 
+export type ProductStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+
 export interface Product {
   id: string;
   name: string;
@@ -29,6 +31,7 @@ export interface Product {
   fullDescription: string | null;
   howToUse: string | null;
   suitableSkinTypes: string | null;
+  status?: ProductStatus | null;
   images: ProductImage[];
   variants: ProductVariant[];
   ingredients: Ingredient[];

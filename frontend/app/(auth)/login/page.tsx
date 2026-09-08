@@ -85,6 +85,16 @@ export default function LoginPage() {
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? 'Signing in…' : 'Sign in'}
         </Button>
+
+        <button
+          type="button"
+          onClick={() => {
+            window.location.href = 'http://localhost:4000/api/v1/auth/google';
+          }}
+          className="w-full rounded-sm border border-charcoal/20 bg-white/20 px-6 py-3 text-[0.68rem] font-semibold tracking-[0.18em] uppercase text-charcoal transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-burgundy hover:text-burgundy"
+        >
+          Continue with Google
+        </button>
       </form>
 
       <p className="mt-8 text-sm text-charcoal-soft">
