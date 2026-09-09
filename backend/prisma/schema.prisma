@@ -51,6 +51,7 @@ enum PaymentStatus {
 }
 
 enum PaymentProvider {
+  COD
   RAZORPAY
   STRIPE
 }
@@ -274,6 +275,8 @@ model Order {
   shippingFee   Decimal      @db.Decimal(10, 2) @default(0) // CLIENT TO SUPPLY shipping policy
   taxTotal      Decimal      @db.Decimal(10, 2) @default(0)
   grandTotal    Decimal      @db.Decimal(10, 2)
+  paymentMethod PaymentProvider @default(COD)
+  shippingAddress Json?
   couponId      String?
   coupon        Coupon?      @relation(fields: [couponId], references: [id])
   createdAt     DateTime     @default(now())

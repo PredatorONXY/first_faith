@@ -165,4 +165,30 @@ export class AuthService {
       },
     });
   }
+
+  getAddresses(userId: string) {
+    return this.prisma.address.findMany({ where: { userId }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] });
+  }
+
+  async createAddress(userId: string, data: {
+    label?: string;
+    line1: string;
+    line2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+    phone?: string;
+  }) {
+    const existing = await this.prisma.address.count({ where: { userId } });
+    return this.prisma.address.create({
+      data: { ...data, userId, isDefault: existing === 0 },
+    });
+  }
+
+  async removeAddress(userId: string, id: string) {
+    const address = await this.prisma.address.findFirst({ where: { id, userId } });
+    if (!address) throw new BadRequestException('Address not found');
+    return this.prisma.address.delete({ where: { id } });
+  }
 }

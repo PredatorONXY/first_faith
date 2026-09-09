@@ -28,6 +28,7 @@ export default function RegisterPage() {
         body: JSON.stringify({ email, password, fullName }),
       });
       setAccessToken(result.accessToken);
+      window.dispatchEvent(new Event('ff:auth-changed'));
       router.push('/account');
     } catch (authError) {
       setLoading(false);

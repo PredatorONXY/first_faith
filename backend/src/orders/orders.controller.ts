@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
-import { OrderStatus, Role } from '@prisma/client';
+import { OrderStatus, PaymentProvider, Role } from '@prisma/client';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -14,6 +14,9 @@ class CreateOrderDto {
   @IsOptional()
   @IsString()
   couponCode?: string;
+
+  @IsEnum(PaymentProvider)
+  paymentMethod!: PaymentProvider;
 }
 
 class UpdateOrderStatusDto {
@@ -33,7 +36,7 @@ export class OrdersController {
 
   @Post()
   create(@Req() req: AuthedRequest, @Body() dto: CreateOrderDto) {
-    return this.ordersService.createFromCart(req.user.id, dto.addressId, dto.couponCode);
+    return this.ordersService.createFromCart(req.user.id, dto.addressId, dto.paymentMethod, dto.couponCode);
   }
 
   @Get()

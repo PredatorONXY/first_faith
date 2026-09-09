@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getPrimaryProductImage } from '../../lib/productImages';
 import { getProductContent } from '../../lib/productContent';
 import { Product } from '../../types/product';
+import { CartProductActions } from './CartProductActions';
 
 export function ProductCard({ product }: { product: Product }) {
   const mappedImage = getPrimaryProductImage(product.slug);
@@ -17,10 +18,8 @@ export function ProductCard({ product }: { product: Product }) {
   const displaySize = content?.sizeLabel ?? variant?.sizeLabel;
 
   return (
-    <Link
-      href={`/products/${product.slug}`}
-      className="product-card group block overflow-hidden border border-stone bg-white/60 transition-all duration-500 hover:-translate-y-1 hover:border-burgundy/40 hover:shadow-[0_16px_36px_rgba(32,28,27,0.08)]"
-    >
+    <article className="product-card group block overflow-hidden border border-stone bg-white/60 transition-all duration-500 hover:-translate-y-1 hover:border-burgundy/40 hover:shadow-[0_16px_36px_rgba(32,28,27,0.08)]">
+      <Link href={`/products/${product.slug}`}>
       <div className="relative aspect-[4/5] overflow-hidden bg-blush-soft">
         {image ? (
           <Image
@@ -36,6 +35,7 @@ export function ProductCard({ product }: { product: Product }) {
           </div>
         )}
       </div>
+      </Link>
       <div className="p-5 md:p-6">
         <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-burgundy">Essential ritual</p>
         <h3 className="mt-2 font-display text-xl text-charcoal">{displayName}</h3>
@@ -48,7 +48,8 @@ export function ProductCard({ product }: { product: Product }) {
             <span className="text-sm text-charcoal-soft">Price coming soon</span>
           )}
         </div>
+        {variant && <CartProductActions variantId={variant.id} stockQuantity={variant.inventory?.stockQuantity ?? 0} />}
       </div>
-    </Link>
+    </article>
   );
 }

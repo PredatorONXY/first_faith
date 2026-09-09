@@ -4,7 +4,7 @@ import { useCart } from '../../../hooks/useCart';
 import { Button } from '../../../components/ui/Button';
 
 export default function CartPage() {
-  const { cart, loading, updateQuantity, removeItem, subtotal } = useCart();
+  const { cart, loading, mutating, error, updateQuantity, removeItem, subtotal } = useCart();
 
   if (loading) {
     return <div className="mx-auto max-w-site px-6 py-24 md:px-10 text-charcoal-soft">Preparing your ritual…</div>;
@@ -28,6 +28,7 @@ export default function CartPage() {
   return (
     <div className="mx-auto max-w-site px-6 py-12 md:px-10 md:py-20">
       <div className="mb-12"><p className="eyebrow">Your ritual</p><h1 className="mt-3 font-display text-6xl text-charcoal">Shopping bag</h1></div>
+      {error && <p className="mb-5 text-sm text-burgundy" role="alert">{error}</p>}
       <div className="cart-layout">
         <section className="border-t border-stone">
 
@@ -42,8 +43,10 @@ export default function CartPage() {
                 <div className="cart-item-actions">
                   <div className="quantity-control">
                     <button
-                      aria-label="Decrease quantity"
+                      aria-label={item.quantity === 1 ? `Remove ${item.variant.product.name}` : 'Decrease quantity'}
+                      title={item.quantity === 1 ? 'Remove item' : 'Decrease quantity'}
                       onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      disabled={mutating}
                     >
                       −
                     </button>
@@ -51,6 +54,7 @@ export default function CartPage() {
                     <button
                       aria-label="Increase quantity"
                       onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      disabled={mutating}
                     >
                       +
                     </button>
@@ -63,6 +67,7 @@ export default function CartPage() {
                   <button
                     aria-label="Remove item"
                     onClick={() => removeItem(item.id)}
+                    disabled={mutating}
                     className="remove-link"
                   >
                     Remove

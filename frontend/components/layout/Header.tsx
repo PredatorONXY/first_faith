@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import brandMark from '../../img/IMG-20260831-WA0007.jpg';
 import { usePathname } from 'next/navigation';
 import { getAccessToken } from '../../lib/api';
-import { apiFetch } from '../../lib/api';
+import { useCart } from '../../hooks/useCart';
 
 const NAV_LINKS = [
   { href: '/shop', label: 'Shop' },
@@ -20,17 +20,23 @@ export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
   const [signedIn, setSignedIn] = useState(false);
-  const [cartCount, setCartCount] = useState(0);
+  const { cart, refresh } = useCart();
+  const cartCount = cart?.items.reduce((total, item) => total + item.quantity, 0) ?? 0;
 
   useEffect(() => {
-    setSignedIn(Boolean(getAccessToken()));
-    const sessionToken = window.localStorage.getItem('ff_cart_session');
-    if (sessionToken) {
-      apiFetch<{ items: Array<{ quantity: number }> }>(`/cart?sessionToken=${sessionToken}`, { next: { revalidate: 0 } })
-        .then((cart) => setCartCount(cart.items.reduce((total, item) => total + item.quantity, 0)))
-        .catch(() => setCartCount(0));
-    }
-  }, []);
+    const syncAuth = () => {
+      setSignedIn(Boolean(getAccessToken()));
+      refresh();
+    };
+    syncAuth();
+    const handleCartChange = () => refresh();
+    window.addEventListener('ff:auth-changed', syncAuth);
+    window.addEventListener('ff:cart-changed', handleCartChange);
+    return () => {
+      window.removeEventListener('ff:auth-changed', syncAuth);
+      window.removeEventListener('ff:cart-changed', handleCartChange);
+    };
+  }, [refresh]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 8);

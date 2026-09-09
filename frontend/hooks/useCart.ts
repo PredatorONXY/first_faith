@@ -1,20 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../lib/api';
-
-// Guest carts are identified by a random token persisted in localStorage.
-// (Not browser storage inside artifacts — this is the real Next.js app,
-// where localStorage is fully supported.)
-function getSessionToken(): string {
-  const key = 'ff_cart_session';
-  let token = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
-  if (!token) {
-    token = crypto.randomUUID();
-    if (typeof window !== 'undefined') localStorage.setItem(key, token);
-  }
-  return token;
-}
+import { getAccessToken } from '../lib/api';
 
 interface CartItem {
   id: string;
@@ -23,6 +11,7 @@ interface CartItem {
     id: string;
     sizeLabel: string;
     price: string;
+      inventory?: { stockQuantity: number } | null;
     product: { name: string };
   };
 }
@@ -32,60 +21,111 @@ interface Cart {
   items: CartItem[];
 }
 
-export function useCart() {
-  const [cart, setCart] = useState<Cart | null>(null);
+let sharedCart: Cart | null = null;
+let cartRevision = 0;
+let mutationQueue = Promise.resolve();
+let refreshPromise: Promise<Cart> | null = null;
+
+function publishCart(nextCart: Cart | null) {
+  sharedCart = nextCart;
+  cartRevision += 1;
+  window.dispatchEvent(new Event('ff:cart-state-changed'));
+}
+
+export function useCart({ autoLoad = true }: { autoLoad?: boolean } = {}) {
+  const [cart, setCart] = useState<Cart | null>(sharedCart);
   const [loading, setLoading] = useState(true);
+  const [mutating, setMutating] = useState(false);
+  const [error, setError] = useState('');
+  const revisionRef = useRef(0);
 
   const refresh = useCallback(async () => {
+    if (!getAccessToken()) {
+      publishCart(null);
+      setCart(null);
+      setLoading(false);
+      return;
+    }
+    const requestRevision = cartRevision;
+    revisionRef.current = requestRevision;
     setLoading(true);
     try {
-      const sessionToken = getSessionToken();
-      const data = await apiFetch<Cart>(`/cart?sessionToken=${sessionToken}`, {
-        next: { revalidate: 0 },
+      refreshPromise ??= apiFetch<Cart>('/cart', { next: { revalidate: 0 } }).finally(() => {
+        refreshPromise = null;
       });
-      setCart(data);
+      const data = await refreshPromise;
+      if (requestRevision === cartRevision) {
+        sharedCart = data;
+        setCart(data);
+      }
+      setError('');
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    const syncCart = () => setCart(sharedCart);
+    window.addEventListener('ff:cart-state-changed', syncCart);
+    window.addEventListener('ff:cart-changed', refresh);
+    if (autoLoad) refresh().catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Unable to load cart'));
+    return () => {
+      window.removeEventListener('ff:cart-state-changed', syncCart);
+      window.removeEventListener('ff:cart-changed', refresh);
+    };
+  }, [autoLoad, refresh]);
+
+  const runMutation = useCallback(async (operation: () => Promise<Cart>) => {
+    setMutating(true);
+    const nextMutation = mutationQueue.then(operation);
+    mutationQueue = nextMutation.then(() => undefined, () => undefined);
+    try {
+      const nextCart = await nextMutation;
+      cartRevision += 1;
+      sharedCart = nextCart;
+      setCart(nextCart);
+      setError('');
+      window.dispatchEvent(new Event('ff:cart-state-changed'));
+      window.dispatchEvent(new Event('ff:cart-changed'));
+      return nextCart;
+    } catch (mutationError) {
+      setError(mutationError instanceof Error ? mutationError.message : 'Unable to update cart');
+      throw mutationError;
+    } finally {
+      setMutating(false);
+    }
+  }, []);
 
   const addItem = useCallback(
     async (variantId: string, quantity = 1) => {
-      const sessionToken = getSessionToken();
-      await apiFetch(`/cart/items?sessionToken=${sessionToken}`, {
+      if (!getAccessToken()) throw new Error('Please sign in before adding items to your cart');
+      return runMutation(() => apiFetch<Cart>('/cart/items', {
         method: 'POST',
         body: JSON.stringify({ variantId, quantity }),
-      });
-      await refresh();
+      }));
     },
-    [refresh],
+    [runMutation],
   );
 
   const updateQuantity = useCallback(
     async (cartItemId: string, quantity: number) => {
-      await apiFetch(`/cart/items/${cartItemId}`, {
+      return runMutation(() => apiFetch<Cart>(`/cart/items/${cartItemId}`, {
         method: 'PATCH',
         body: JSON.stringify({ quantity }),
-      });
-      await refresh();
+      }));
     },
-    [refresh],
+    [runMutation],
   );
 
   const removeItem = useCallback(
     async (cartItemId: string) => {
-      await apiFetch(`/cart/items/${cartItemId}`, { method: 'DELETE' });
-      await refresh();
+      return runMutation(() => apiFetch<Cart>(`/cart/items/${cartItemId}`, { method: 'DELETE' }));
     },
-    [refresh],
+    [runMutation],
   );
 
   const subtotal =
     cart?.items.reduce((sum, item) => sum + Number(item.variant.price) * item.quantity, 0) ?? 0;
 
-  return { cart, loading, addItem, updateQuantity, removeItem, subtotal, refresh };
+  return { cart, loading, mutating, error, addItem, updateQuantity, removeItem, subtotal, refresh };
 }

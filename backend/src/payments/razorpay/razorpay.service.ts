@@ -22,8 +22,10 @@ export class RazorpayService {
   // Step 1 of the flow: backend creates a Razorpay order for an existing
   // First Faith order and records the provider reference. The amount is
   // read from our own DB record, never from the client request body.
-  async createPaymentOrder(orderId: string) {
-    const order = await this.prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+  async createPaymentOrder(orderId: string, userId: string) {
+    const order = await this.prisma.order.findFirst({ where: { id: orderId, userId } });
+    if (!order) throw new BadRequestException('Order not found');
+    if (order.paymentMethod !== 'RAZORPAY') throw new BadRequestException('This order does not use online payment');
 
     const razorpayOrder = await this.client.orders.create({
       amount: Math.round(Number(order.grandTotal) * 100), // paise
@@ -81,6 +83,8 @@ export class RazorpayService {
 
       if (!payment) return { received: true }; // unknown order — ignore safely
 
+      if (payment.status === PaymentStatus.CAPTURED) return { received: true };
+
       await this.prisma.$transaction(async (tx) => {
         await tx.payment.update({
           where: { id: payment.id },
@@ -91,19 +95,10 @@ export class RazorpayService {
           },
         });
 
-        const order = await tx.order.update({
+        await tx.order.update({
           where: { id: payment.orderId },
           data: { status: OrderStatus.PAID },
-          include: { items: true },
         });
-
-        // Decrement inventory only once payment is confirmed server-side.
-        for (const item of order.items) {
-          await tx.inventory.updateMany({
-            where: { variantId: item.variantId },
-            data: { stockQuantity: { decrement: item.quantity } },
-          });
-        }
       });
     }
 

@@ -49,6 +49,7 @@ function AccountPageContent() {
 
     if (tokenFromQuery) {
       setAccessToken(tokenFromQuery);
+      window.dispatchEvent(new Event('ff:auth-changed'));
       const params = new URLSearchParams(searchParams.toString());
       params.delete('token');
       router.replace(params.toString() ? `/account?${params.toString()}` : '/account');
@@ -95,6 +96,7 @@ function AccountPageContent() {
 
   function handleLogout() {
     clearAccessToken();
+    window.dispatchEvent(new Event('ff:auth-changed'));
     router.push('/login');
   }
 

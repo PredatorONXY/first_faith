@@ -27,6 +27,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       setAccessToken(result.accessToken);
+      window.dispatchEvent(new Event('ff:auth-changed'));
       router.push('/account');
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : 'Unable to log in');
