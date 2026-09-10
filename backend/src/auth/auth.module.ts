@@ -3,7 +3,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { PrismaService } from '../common/prisma.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 @Global()
@@ -19,7 +18,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, PrismaService, JwtAuthGuard],
-  exports: [JwtModule, JwtAuthGuard, PrismaService],
+  providers: [AuthService, JwtAuthGuard],
+  exports: [JwtModule, JwtAuthGuard],
 })
 export class AuthModule {}

@@ -8,6 +8,8 @@ import { getProductGalleryImages } from '../../../../lib/productImages';
 
 interface Props { params: { slug: string } }
 
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const product = await getProductBySlug(params.slug).catch(() => null);
   const content = product ? getProductContent(product.slug) : null;

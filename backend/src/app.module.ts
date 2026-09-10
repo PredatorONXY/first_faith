@@ -15,12 +15,14 @@ import { CouponsModule } from './coupons/coupons.module';
 import { SettingsModule } from './settings/settings.module';
 import { AdminModule } from './admin/admin.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { PrismaModule } from './common/prisma.module';
 import { StorageModule } from './common/storage/storage.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]), // basic rate limiting
+    PrismaModule,
     AuthModule,
     ProductsModule,
     CategoriesModule,

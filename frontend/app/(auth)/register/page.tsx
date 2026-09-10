@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { apiFetch, setAccessToken } from '../../../lib/api';
+import { API_BASE_URL, apiFetch, setAccessToken } from '../../../lib/api';
 import { Button } from '../../../components/ui/Button';
 import Image from 'next/image';
 import heroImage from '../../../img/IMG-20260831-WA0012.jpg';
@@ -96,7 +96,7 @@ export default function RegisterPage() {
         <button
           type="button"
           onClick={() => {
-            window.location.href = 'http://localhost:4000/api/v1/auth/google';
+            window.location.href = `${API_BASE_URL}/auth/google`;
           }}
           className="w-full rounded-sm border border-charcoal/20 bg-white/20 px-6 py-3 text-[0.68rem] font-semibold tracking-[0.18em] uppercase text-charcoal transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-burgundy hover:text-burgundy"
         >

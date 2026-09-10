@@ -26,6 +26,8 @@ export const metadata: Metadata = {
     'First Faith combines botanical ingredients with purposeful cosmetic actives for a modern skincare experience.',
 };
 
+export const dynamic = 'force-dynamic';
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Fetched here so the footer's contact/social info stays admin-editable
   // without a redeploy. Falls back to an empty object if the backend isn't

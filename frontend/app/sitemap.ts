@@ -1,6 +1,8 @@
 import { MetadataRoute } from 'next';
 import { getPublishedProducts } from '../services/products';
 
+export const dynamic = 'force-dynamic';
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://firstfaith.example.com';
   const products = await getPublishedProducts().catch(() => []);
