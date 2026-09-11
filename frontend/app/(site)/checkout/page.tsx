@@ -121,26 +121,228 @@ export default function CheckoutPage() {
     }
   }
 
-  if (cartLoading || loading) return <main className="site-shell px-6 py-24 md:px-10"><p className="text-charcoal-soft">Preparing checkout...</p></main>;
-  if (!cart || cart.items.length === 0) return <main className="site-shell px-6 py-24 md:px-10"><p className="eyebrow">Checkout</p><h1 className="mt-3 font-display text-5xl text-charcoal">Your cart is empty.</h1></main>;
+  if (cartLoading || loading) {
+    return (
+      <main className="site-shell" style={{ padding: '6rem 0', textAlign: 'center', color: 'var(--ff-charcoal-soft)' }}>
+        Preparing checkout...
+      </main>
+    );
+  }
 
-  return <main className="site-shell px-6 py-16 md:px-10 md:py-24">
-    <div className="max-w-4xl">
-      <p className="eyebrow">Checkout</p>
-      <h1 className="mt-3 font-display text-5xl text-charcoal">Complete your ritual.</h1>
-      <form onSubmit={placeOrder} className="mt-12 grid gap-12 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-10">
-          <section>
-            <div className="flex items-center justify-between border-b border-stone pb-4"><h2 className="font-display text-2xl">Delivery address</h2><button type="button" onClick={() => setShowForm((visible) => !visible)} className="text-sm text-burgundy underline underline-offset-4">{showForm ? 'Use saved address' : 'Add new address'}</button></div>
-            {!showForm && addresses.length > 0 && <div className="mt-5 space-y-3">{addresses.map((address) => <label key={address.id} className="flex gap-3 border border-stone bg-white/50 p-4"><input type="radio" name="address" value={address.id} checked={selectedAddress === address.id} onChange={() => setSelectedAddress(address.id)} /><span className="text-sm leading-6">{address.label || 'Address'}<br />{address.line1}{address.line2 ? `, ${address.line2}` : ''}, {address.city}, {address.state} {address.postalCode}, {address.country}</span></label>)}</div>}
-            {!showForm && addresses.length === 0 && <p className="mt-5 text-sm text-charcoal-soft">Add a delivery address to continue.</p>}
-            {showForm && <div className="mt-5 grid gap-4 sm:grid-cols-2">{(['label', 'line1', 'line2', 'city', 'state', 'postalCode', 'country', 'phone'] as const).map((field) => <label key={field} className={field === 'line1' || field === 'line2' ? 'sm:col-span-2' : ''}><span className="text-xs uppercase tracking-[0.14em] text-charcoal-soft">{field === 'postalCode' ? 'PIN / postal code' : field}</span><input required={field !== 'label' && field !== 'line2'} value={form[field] ?? ''} onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))} className="mt-2 w-full border border-stone bg-white/60 px-3 py-3 text-sm outline-none focus:border-burgundy" /></label>)}<Button type="button" onClick={saveAddress} className="sm:col-span-2" disabled={submitting}>Save address</Button></div>}
-          </section>
-          <section><h2 className="border-b border-stone pb-4 font-display text-2xl">Payment</h2><label className="mt-5 flex gap-3 border border-burgundy bg-blush/40 p-4"><input type="radio" checked readOnly /><span className="text-sm"><strong>Cash on delivery</strong><br /><span className="text-charcoal-soft">Pay when your First Faith order arrives.</span></span></label><p className="mt-3 text-xs text-charcoal-soft">Online payment is not enabled for this account yet.</p></section>
-          {(error || cartError) && <p className="text-sm text-burgundy" role="alert">{error || cartError}</p>}
+  if (!cart || cart.items.length === 0) {
+    return (
+      <main className="site-shell" style={{ padding: '6rem 0', textAlign: 'center' }}>
+        <p className="eyebrow">Checkout</p>
+        <h1 className="display-title" style={{ fontSize: 'clamp(2.5rem, 5vw, 3.8rem)' }}>
+          Your cart is empty.
+        </h1>
+        <div style={{ marginTop: '2rem' }}>
+          <Button href="/shop">Shop the collection</Button>
         </div>
-        <aside className="h-fit border border-stone bg-white/60 p-6"><h2 className="font-display text-2xl">Order summary</h2><div className="mt-6 space-y-3 text-sm">{cart.items.map((item) => <div key={item.id} className="flex items-center justify-between gap-4"><span>{item.variant.product.name} × {item.quantity}<br /><span className="text-xs text-charcoal-soft">₹{Number(item.variant.price).toLocaleString('en-IN')} each</span></span><span>₹{(Number(item.variant.price) * item.quantity).toLocaleString('en-IN')}</span><div className="flex items-center border border-stone"><button type="button" aria-label={item.quantity === 1 ? `Remove ${item.variant.product.name}` : `Decrease ${item.variant.product.name}`} title={item.quantity === 1 ? 'Remove item' : 'Decrease quantity'} onClick={() => changeQuantity(item.id, item.quantity - 1)} disabled={submitting} className="px-2 py-1 text-burgundy disabled:opacity-50">−</button><span className="px-2 text-xs">{item.quantity}</span><button type="button" aria-label={`Increase ${item.variant.product.name}`} onClick={() => changeQuantity(item.id, item.quantity + 1)} disabled={submitting || item.quantity >= (item.variant.inventory?.stockQuantity ?? item.quantity)} className="px-2 py-1 text-burgundy disabled:opacity-50">+</button></div></div>)}</div><div className="mt-6 space-y-2 border-t border-stone pt-5 text-sm"><div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal.toLocaleString('en-IN')}</span></div><div className="flex justify-between text-charcoal-soft"><span>Shipping</span><span>Free</span></div><div className="flex justify-between pt-2 font-medium"><span>Total</span><span>₹{subtotal.toLocaleString('en-IN')}</span></div></div><Button type="submit" className="mt-6 w-full" disabled={submitting || !selectedAddress || cart.items.length === 0}>{submitting ? 'Placing order...' : `Place order for ₹${subtotal.toLocaleString('en-IN')}`}</Button><p className="mt-3 text-xs leading-5 text-charcoal-soft">Ordering as {profile.fullName || 'your First Faith account'}.</p></aside>
+      </main>
+    );
+  }
+
+  return (
+    <main className="site-shell" style={{ padding: '4rem 0 6rem' }}>
+      <div style={{ marginBottom: '2.5rem' }}>
+        <p className="eyebrow">Checkout</p>
+        <h1 className="display-title" style={{ fontSize: 'clamp(2.4rem, 4.5vw, 3.8rem)' }}>
+          Complete your ritual.
+        </h1>
+      </div>
+
+      <form onSubmit={placeOrder} className="cart-layout">
+        <div style={{ display: 'grid', gap: '2.5rem' }}>
+          {/* DELIVERY ADDRESS */}
+          <section className="cart-items-panel">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '1rem', borderBottom: '1px solid rgba(32, 28, 27, 0.1)', marginBottom: '1.25rem' }}>
+              <h2 className="section-title" style={{ fontSize: '1.5rem', margin: 0 }}>Delivery address</h2>
+              <button
+                type="button"
+                onClick={() => setShowForm((visible) => !visible)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--ff-burgundy)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                {showForm ? 'Use saved address' : '+ Add new address'}
+              </button>
+            </div>
+
+            {!showForm && addresses.length > 0 && (
+              <div style={{ display: 'grid', gap: '0.85rem' }}>
+                {addresses.map((address) => (
+                  <label
+                    key={address.id}
+                    style={{
+                      display: 'flex',
+                      gap: '0.85rem',
+                      border: selectedAddress === address.id ? '1.5px solid var(--ff-burgundy)' : '1px solid rgba(32, 28, 27, 0.12)',
+                      background: selectedAddress === address.id ? 'rgba(238, 216, 207, 0.35)' : 'rgba(255, 255, 255, 0.6)',
+                      padding: '1.25rem',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="address"
+                      value={address.id}
+                      checked={selectedAddress === address.id}
+                      onChange={() => setSelectedAddress(address.id)}
+                      style={{ marginTop: '0.2rem', accentColor: 'var(--ff-burgundy)' }}
+                    />
+                    <span style={{ fontSize: '0.9rem', lineHeight: '1.6', color: 'var(--ff-charcoal)' }}>
+                      <strong>{address.label || 'Address'}</strong><br />
+                      {address.line1}{address.line2 ? `, ${address.line2}` : ''}, {address.city}, {address.state} {address.postalCode}, {address.country}
+                      {address.phone ? ` · Tel: ${address.phone}` : ''}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {!showForm && addresses.length === 0 && (
+              <p style={{ fontSize: '0.92rem', color: 'var(--ff-charcoal-soft)', margin: '1rem 0' }}>
+                No saved address. Please click &quot;+ Add new address&quot; above to continue.
+              </p>
+            )}
+
+            {showForm && (
+              <div style={{ display: 'grid', gap: '1rem', marginTop: '1rem' }}>
+                {(['label', 'line1', 'line2', 'city', 'state', 'postalCode', 'country', 'phone'] as const).map((field) => (
+                  <div key={field} className="form-group" style={{ margin: 0 }}>
+                    <label htmlFor={field} className="form-label">
+                      {field === 'postalCode' ? 'PIN / postal code' : field}
+                    </label>
+                    <input
+                      id={field}
+                      required={field !== 'label' && field !== 'line2'}
+                      value={form[field] ?? ''}
+                      onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))}
+                      className="form-input"
+                    />
+                  </div>
+                ))}
+                <div style={{ marginTop: '0.5rem' }}>
+                  <Button type="button" onClick={saveAddress} disabled={submitting}>
+                    Save address
+                  </Button>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* PAYMENT METHOD */}
+          <section className="cart-items-panel">
+            <h2 className="section-title" style={{ fontSize: '1.5rem', marginBottom: '1.25rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(32, 28, 27, 0.1)' }}>
+              Payment method
+            </h2>
+            <label
+              style={{
+                display: 'flex',
+                gap: '0.85rem',
+                border: '1.5px solid var(--ff-burgundy)',
+                background: 'rgba(238, 216, 207, 0.35)',
+                padding: '1.25rem',
+                borderRadius: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              <input type="radio" checked readOnly style={{ marginTop: '0.2rem', accentColor: 'var(--ff-burgundy)' }} />
+              <span style={{ fontSize: '0.92rem', color: 'var(--ff-charcoal)' }}>
+                <strong>Cash on delivery (COD)</strong><br />
+                <span style={{ color: 'var(--ff-charcoal-soft)', fontSize: '0.85rem' }}>
+                  Pay securely with cash or UPI when your First Faith order arrives.
+                </span>
+              </span>
+            </label>
+          </section>
+
+          {(error || cartError) && (
+            <p style={{ color: 'var(--ff-burgundy)', fontSize: '0.9rem', fontWeight: 600 }} role="alert">
+              {error || cartError}
+            </p>
+          )}
+        </div>
+
+        {/* ORDER SUMMARY SIDEBAR */}
+        <aside className="cart-summary">
+          <h2 className="section-title" style={{ fontSize: '1.5rem', marginBottom: '1.25rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(32, 28, 27, 0.1)' }}>
+            Order summary
+          </h2>
+
+          <div style={{ display: 'grid', gap: '1rem' }}>
+            {cart.items.map((item) => (
+              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.85rem', fontSize: '0.88rem' }}>
+                <div>
+                  <p style={{ margin: 0, fontWeight: 500, color: 'var(--ff-charcoal)' }}>
+                    {item.variant.product.name} × {item.quantity}
+                  </p>
+                  <p style={{ margin: '0.2rem 0 0', fontSize: '0.78rem', color: 'var(--ff-charcoal-soft)' }}>
+                    ₹{Number(item.variant.price).toLocaleString('en-IN')} each
+                  </p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--ff-burgundy)' }}>
+                    ₹{(Number(item.variant.price) * item.quantity).toLocaleString('en-IN')}
+                  </span>
+                  <div className="cart-qty-bar" style={{ padding: 0 }}>
+                    <button
+                      type="button"
+                      aria-label="Decrease quantity"
+                      onClick={() => changeQuantity(item.id, item.quantity - 1)}
+                      disabled={submitting}
+                      className="cart-qty-btn"
+                      style={{ padding: '0.2rem 0.55rem', fontSize: '0.9rem' }}
+                    >
+                      −
+                    </button>
+                    <span style={{ fontSize: '0.78rem', padding: '0 0.2rem' }}>{item.quantity}</span>
+                    <button
+                      type="button"
+                      aria-label="Increase quantity"
+                      onClick={() => changeQuantity(item.id, item.quantity + 1)}
+                      disabled={submitting || item.quantity >= (item.variant.inventory?.stockQuantity ?? item.quantity)}
+                      className="cart-qty-btn"
+                      style={{ padding: '0.2rem 0.55rem', fontSize: '0.9rem' }}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(32, 28, 27, 0.1)' }}>
+            <div className="summary-row">
+              <span>Subtotal</span>
+              <strong>₹{subtotal.toLocaleString('en-IN')}</strong>
+            </div>
+            <div className="summary-row muted">
+              <span>Shipping</span>
+              <strong style={{ color: 'var(--ff-success)' }}>FREE</strong>
+            </div>
+            <div className="summary-row" style={{ paddingTop: '1rem' }}>
+              <span style={{ fontWeight: 600 }}>Total</span>
+              <strong style={{ fontSize: '1.4rem' }}>₹{subtotal.toLocaleString('en-IN')}</strong>
+            </div>
+          </div>
+
+          <div style={{ marginTop: '1.75rem' }}>
+            <Button
+              type="submit"
+              className="btn-block"
+              disabled={submitting || !selectedAddress || cart.items.length === 0}
+            >
+              {submitting ? 'Placing order...' : `Place order · ₹${subtotal.toLocaleString('en-IN')}`}
+            </Button>
+          </div>
+          <p style={{ marginTop: '0.85rem', fontSize: '0.78rem', color: 'var(--ff-charcoal-soft)', textAlign: 'center' }}>
+            Ordering as {profile.fullName || 'your First Faith account'}.
+          </p>
+        </aside>
       </form>
-    </div>
-  </main>;
+    </main>
+  );
 }

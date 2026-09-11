@@ -55,7 +55,8 @@ export function Header() {
               alt="First Faith"
               fill
               className="object-contain"
-              sizes="42px"
+              sizes="44px"
+              priority
             />
           </span>
           <span className="brand-name">First Faith</span>
@@ -63,17 +64,30 @@ export function Header() {
 
         <nav className="desktop-nav" aria-label="Primary navigation">
           {NAV_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className={`nav-link ${pathname.startsWith(link.href) ? 'is-active' : ''}`}>
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`nav-link ${pathname.startsWith(link.href) ? 'is-active' : ''}`}
+            >
               {link.label}
             </Link>
           ))}
         </nav>
 
         <div className="header-actions">
-          <Link href="/account" className={`header-action-link ${pathname.startsWith('/account') ? 'is-active' : ''}`}>
+          <Link
+            href="/account"
+            className={`header-action-link ${pathname.startsWith('/account') ? 'is-active' : ''}`}
+          >
             {signedIn ? 'My account' : 'Account'}
           </Link>
-          <Link href="/cart" className={`header-action-link ${pathname.startsWith('/cart') ? 'is-active' : ''}`}>Cart{cartCount > 0 ? ` (${cartCount})` : ''}</Link>
+          <Link
+            href="/cart"
+            className={`header-action-link ${pathname.startsWith('/cart') ? 'is-active' : ''}`}
+          >
+            Cart
+            {cartCount > 0 && <span className="cart-count-badge">{cartCount}</span>}
+          </Link>
 
           <button
             type="button"
@@ -92,12 +106,21 @@ export function Header() {
       {menuOpen && (
         <div className="mobile-panel">
           {NAV_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="mobile-link" onClick={() => setMenuOpen(false)}>
+            <Link
+              key={link.href}
+              href={link.href}
+              className="mobile-link"
+              onClick={() => setMenuOpen(false)}
+            >
               {link.label}
             </Link>
           ))}
-          <Link href="/account" className="mobile-link" onClick={() => setMenuOpen(false)}>Account</Link>
-          <Link href="/cart" className="mobile-link" onClick={() => setMenuOpen(false)}>Cart</Link>
+          <Link href="/account" className="mobile-link" onClick={() => setMenuOpen(false)}>
+            {signedIn ? 'My account' : 'Account'}
+          </Link>
+          <Link href="/cart" className="mobile-link" onClick={() => setMenuOpen(false)}>
+            Cart {cartCount > 0 && <span className="cart-count-badge">{cartCount}</span>}
+          </Link>
         </div>
       )}
     </header>

@@ -65,18 +65,24 @@ export class AuthController {
 
   @Get('google/callback')
   async googleCallback(@Query('code') code: string | undefined, @Query('error') error: string | undefined, @Res() res: Response) {
-    const frontendBaseUrl = this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+    const frontendBaseUrl = this.config.get<string>('FRONTEND_URL');
 
     try {
       const result = await this.authService.handleGoogleCallback(code, error);
-      const frontendUrl = new URL('/account', frontendBaseUrl);
-      frontendUrl.searchParams.set('token', result.accessToken);
-      return res.redirect(frontendUrl.toString());
+      if (frontendBaseUrl) {
+        const frontendUrl = new URL('/account', frontendBaseUrl);
+        frontendUrl.searchParams.set('token', result.accessToken);
+        return res.redirect(frontendUrl.toString());
+      }
+      return res.redirect(`/account?token=${encodeURIComponent(result.accessToken)}`);
     } catch (errorResponse) {
       const message = errorResponse instanceof Error ? errorResponse.message : 'Google authentication failed';
-      const frontendUrl = new URL('/login', frontendBaseUrl);
-      frontendUrl.searchParams.set('googleError', message);
-      return res.redirect(frontendUrl.toString());
+      if (frontendBaseUrl) {
+        const frontendUrl = new URL('/login', frontendBaseUrl);
+        frontendUrl.searchParams.set('googleError', message);
+        return res.redirect(frontendUrl.toString());
+      }
+      return res.redirect(`/login?googleError=${encodeURIComponent(message)}`);
     }
   }
 

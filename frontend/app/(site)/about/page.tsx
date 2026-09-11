@@ -4,15 +4,117 @@ import storyImage from '../../../img/IMG-20260831-WA0009.jpg';
 import ritualImage from '../../../img/IMG-20260831-WA0013.jpg';
 import { Button } from '../../../components/ui/Button';
 
-export const metadata: Metadata = { title: 'About', description: 'First Faith — Perfect Blend of Nature & Science.' };
+export const metadata: Metadata = {
+  title: 'About',
+  description: 'First Faith — Perfect Blend of Nature & Science.',
+};
+
+const PILLARS = [
+  {
+    number: '01',
+    title: 'Botanicals',
+    body: 'Inspired by nature and selected for skin-conditioning properties that soothe, balance, and restore.',
+  },
+  {
+    number: '02',
+    title: 'Actives',
+    body: 'Purposeful cosmetic ingredients chosen for specific skincare roles and clinically documented efficacy.',
+  },
+  {
+    number: '03',
+    title: 'Formulation',
+    body: 'Balanced combinations designed for a sensorial, weightless finish that makes every application a pleasure.',
+  },
+];
 
 export default function AboutPage() {
   return (
     <>
-      <section className="page-intro"><div className="site-shell px-6 md:px-10"><p className="eyebrow">The First Faith philosophy</p><h1 className="display-title">Care is a ritual, not a rush.</h1><p className="mt-8 max-w-xl text-base leading-8 text-charcoal-soft">We believe effective skincare is not about choosing between nature and science. It is about bringing them together thoughtfully.</p></div></section>
-      <section className="site-shell grid gap-10 px-6 py-20 md:grid-cols-[1fr_0.8fr] md:px-10 md:py-28"><div className="relative min-h-[500px] overflow-hidden bg-blush"><Image src={storyImage} alt="First Faith skincare product" fill className="object-cover" sizes="55vw" /></div><div className="flex flex-col justify-center md:px-8"><p className="eyebrow">A modern point of view</p><p className="mt-5 font-display text-4xl leading-tight text-charcoal">Botanicals give a formula its soul. Actives give it purpose.</p><p className="mt-7 leading-8 text-charcoal-soft">From Rice Water, Oat, Green Tea, and Centella to Niacinamide, Hyaluronic Acid, Ceramides, Alpha Arbutin, and Snail Mucin, our ingredients are selected for a reason and made to belong in real routines.</p></div></section>
-      <section className="border-y border-charcoal/10 bg-blush/40"><div className="site-shell grid gap-8 px-6 py-20 md:grid-cols-3 md:px-10 md:py-24">{[['01','Botanicals','Inspired by nature and selected for skin-conditioning properties.'],['02','Actives','Purposeful cosmetic ingredients chosen for specific skincare roles.'],['03','Formulation','Balanced combinations designed for a sensorial, functional experience.']].map(([number,title,body]) => <article key={title} className="border-t border-charcoal/20 pt-5"><span className="text-xs text-burgundy">{number}</span><h2 className="mt-8 font-display text-3xl text-charcoal">{title}</h2><p className="mt-4 text-sm leading-7 text-charcoal-soft">{body}</p></article>)}</div></section>
-      <section className="site-shell grid gap-10 px-6 py-20 md:grid-cols-[0.85fr_1.15fr] md:px-10 md:py-28"><div className="flex flex-col justify-center"><p className="eyebrow">Beyond just skincare</p><h2 className="mt-4 font-display text-5xl leading-none text-charcoal md:text-7xl">Small moments. Real care.</h2><Button href="/shop" className="mt-9 self-start">Explore the collection</Button></div><div className="relative min-h-[440px] overflow-hidden bg-blush"><Image src={ritualImage} alt="First Faith skincare ritual" fill className="object-cover" sizes="55vw" /></div></section>
+      <section className="page-intro">
+        <div className="site-shell">
+          <p className="eyebrow">The First Faith philosophy</p>
+          <h1 className="display-title">
+            Care is a ritual,<br />
+            not a rush.
+          </h1>
+          <p style={{ marginTop: '1.25rem', maxWidth: '36rem', color: 'var(--ff-charcoal-soft)', fontSize: '1.05rem', lineHeight: 1.75 }}>
+            We believe effective skincare is not about choosing between nature and science. It is about bringing them together thoughtfully.
+          </p>
+        </div>
+      </section>
+
+      <section className="section-block">
+        <div className="site-shell ritual-layout">
+          <div className="ritual-media-wrap">
+            <Image
+              src={storyImage}
+              alt="First Faith skincare philosophy"
+              fill
+              style={{ objectFit: 'cover' }}
+              sizes="(min-width: 768px) 50vw, 100vw"
+            />
+          </div>
+
+          <div className="ritual-copy">
+            <p className="eyebrow">A modern point of view</p>
+            <h2 className="ritual-title">Botanicals give a formula its soul. Actives give it purpose.</h2>
+            <p className="ritual-text">
+              From Rice Water, Oat, Green Tea, and Centella to Niacinamide, Hyaluronic Acid, Ceramides,
+              Alpha Arbutin, and Snail Mucin, our ingredients are selected for a reason and made to belong
+              in real routines.
+            </p>
+            <div style={{ marginTop: '2rem' }}>
+              <Button href="/ingredients" variant="outline">Explore our ingredients</Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="approach-section" style={{ background: 'rgba(238, 216, 207, 0.4)', borderTop: '1px solid rgba(32, 28, 27, 0.08)', borderBottom: '1px solid rgba(32, 28, 27, 0.08)' }}>
+        <div className="site-shell">
+          <div className="section-header" style={{ marginBottom: '1.5rem' }}>
+            <div>
+              <p className="section-kicker">Our foundation</p>
+              <h2 className="section-title">The three pillars</h2>
+            </div>
+          </div>
+          <div className="approach-grid">
+            {PILLARS.map((pillar) => (
+              <article key={pillar.title} className="approach-card">
+                <span className="approach-number">{pillar.number}</span>
+                <h3>{pillar.title}</h3>
+                <p>{pillar.body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section-block">
+        <div className="site-shell ritual-layout">
+          <div className="ritual-copy">
+            <p className="eyebrow">Beyond just skincare</p>
+            <h2 className="ritual-title">Small moments. Real care.</h2>
+            <p className="ritual-text">
+              Every morning and evening, the minutes you spend caring for your skin are an opportunity to
+              pause, reset, and nurture your wellbeing. We make sure those moments feel beautiful.
+            </p>
+            <div style={{ marginTop: '2.2rem' }}>
+              <Button href="/shop">Explore the collection</Button>
+            </div>
+          </div>
+
+          <div className="ritual-media-wrap">
+            <Image
+              src={ritualImage}
+              alt="First Faith skincare ritual"
+              fill
+              style={{ objectFit: 'cover' }}
+              sizes="(min-width: 768px) 50vw, 100vw"
+            />
+          </div>
+        </div>
+      </section>
     </>
   );
 }

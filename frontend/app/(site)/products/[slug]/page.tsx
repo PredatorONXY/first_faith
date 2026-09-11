@@ -6,7 +6,9 @@ import { ProductImageGallery } from '../../../../components/product/ProductImage
 import { getProductContent } from '../../../../lib/productContent';
 import { getProductGalleryImages } from '../../../../lib/productImages';
 
-interface Props { params: { slug: string } }
+interface Props {
+  params: { slug: string };
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -38,32 +40,103 @@ export default async function ProductPage({ params }: Props) {
     src: image.src,
     alt: image.alt,
   }));
-  const heroIngredients = content.heroIngredients.length > 0 ? content.heroIngredients : product.ingredients.filter((item) => item.role === 'HERO').map((item) => item.ingredient.name);
-  const powerIngredients = content.powerIngredients.length > 0 ? content.powerIngredients : product.ingredients.filter((item) => item.role === 'POWER').map((item) => item.ingredient.name);
+  const heroIngredients = content.heroIngredients.length > 0
+    ? content.heroIngredients
+    : product.ingredients.filter((item) => item.role === 'HERO').map((item) => item.ingredient.name);
+  const powerIngredients = content.powerIngredients.length > 0
+    ? content.powerIngredients
+    : product.ingredients.filter((item) => item.role === 'POWER').map((item) => item.ingredient.name);
+  const price = variant ? Number(variant.price).toLocaleString('en-IN') : null;
 
-  return <main className="site-shell px-6 py-12 md:px-10 md:py-20">
-    <div className="grid gap-10 md:grid-cols-[1.05fr_0.95fr] md:gap-16">
-      <ProductImageGallery images={galleryImages} productName={content.name} />
-      <div className="flex flex-col justify-center">
-        <p className="eyebrow">The essential ritual</p>
-        <h1 className="mt-4 font-display text-6xl leading-[0.9] text-charcoal md:text-8xl">{content.name}</h1>
-        {content.tagline && <p className="mt-6 text-lg leading-8 text-charcoal-soft">{content.tagline}</p>}
-        <div className="mt-8 flex items-baseline gap-4 border-y border-stone py-5">
-          <span className="font-display text-3xl text-burgundy">{variant ? `₹${Number(variant.price).toLocaleString('en-IN')}` : 'Price coming soon'}</span>
-          {variant && <span className="text-sm text-charcoal-soft">{content.sizeLabel ?? variant.sizeLabel}</span>}
-        </div>
-        {content.shortDescription && <p className="mt-7 leading-8 text-charcoal-soft">{content.shortDescription}</p>}
-        <div className="mt-8 flex flex-wrap items-center gap-4">
-          {variant && <AddToCartButton variantId={variant.id} disabled={!available} />}
-          <span className={`text-xs uppercase tracking-[0.15em] ${available ? 'text-burgundy' : 'text-charcoal-soft'}`}>{available ? 'In stock' : 'Currently unavailable'}</span>
-        </div>
-        <div className="mt-12 space-y-7">
-          {heroIngredients.length > 0 && <div className="border-t border-stone pt-5"><h2 className="font-display text-2xl text-charcoal">Hero ingredients</h2><ul className="mt-4 grid gap-3 sm:grid-cols-2">{heroIngredients.map((item) => <li key={item} className="text-sm text-charcoal-soft"><span className="font-medium text-charcoal">{item}</span></li>)}</ul></div>}
-          {powerIngredients.length > 0 && <div className="border-t border-stone pt-5"><h2 className="font-display text-2xl text-charcoal">Power ingredients</h2><ul className="mt-4 grid gap-3 sm:grid-cols-2">{powerIngredients.map((item) => <li key={item} className="text-sm text-charcoal-soft"><span className="font-medium text-charcoal">{item}</span></li>)}</ul></div>}
-          {content.benefits.length > 0 && <div className="border-t border-stone pt-5"><h2 className="font-display text-2xl text-charcoal">Benefits</h2><div className="mt-4 flex flex-wrap gap-2">{content.benefits.map((benefit) => <span key={benefit} className="rounded-full border border-stone bg-blush-soft px-3 py-1 text-xs uppercase tracking-[0.12em] text-charcoal-soft">{benefit}</span>)}</div></div>}
+  return (
+    <main className="site-shell" style={{ padding: '3.5rem 0 5rem' }}>
+      <div className="product-detail-layout">
+        <ProductImageGallery images={galleryImages} productName={content.name} />
+
+        <div className="product-info-panel">
+          <p className="eyebrow">The essential ritual</p>
+          <h1 className="product-detail-title">{content.name}</h1>
+          {content.tagline && <p className="product-detail-tagline">{content.tagline}</p>}
+
+          <div className="product-price-bar">
+            <span className="product-price-main">
+              {price ? `₹${price}` : 'Price coming soon'}
+            </span>
+            {variant && (
+              <span className="product-size-pill">{content.sizeLabel ?? variant.sizeLabel}</span>
+            )}
+          </div>
+
+          {content.shortDescription && (
+            <p style={{ marginTop: '1.25rem', color: 'var(--ff-charcoal-soft)', lineHeight: 1.75, fontSize: '1rem' }}>
+              {content.shortDescription}
+            </p>
+          )}
+
+          <div className="product-detail-actions">
+            {variant && <AddToCartButton variantId={variant.id} disabled={!available} />}
+            <span
+              className="product-stock-status"
+              style={{ color: available ? 'var(--ff-burgundy)' : 'var(--ff-charcoal-soft)' }}
+            >
+              {available ? 'In stock · Ready to dispatch' : 'Currently unavailable'}
+            </span>
+          </div>
+
+          <div style={{ marginTop: '1.5rem' }}>
+            {heroIngredients.length > 0 && (
+              <div className="ingredient-meta-section">
+                <h2 className="ingredient-meta-title">Hero ingredients</h2>
+                <div className="ingredient-chip-list">
+                  {heroIngredients.map((item) => (
+                    <span key={item} className="ingredient-chip">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {powerIngredients.length > 0 && (
+              <div className="ingredient-meta-section">
+                <h2 className="ingredient-meta-title">Power ingredients</h2>
+                <div className="ingredient-chip-list">
+                  {powerIngredients.map((item) => (
+                    <span key={item} className="ingredient-chip">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {content.benefits.length > 0 && (
+              <div className="ingredient-meta-section">
+                <h2 className="ingredient-meta-title">Key benefits</h2>
+                <div className="benefit-badge-list">
+                  {content.benefits.map((benefit) => (
+                    <span key={benefit} className="benefit-badge">
+                      {benefit}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-    {content.fullDescription && <section className="mt-20 border-t border-stone pt-10 md:mt-28 md:grid md:grid-cols-[0.5fr_1fr] md:gap-10"><p className="eyebrow">The formula</p><p className="max-w-2xl text-lg leading-8 text-charcoal-soft">{content.fullDescription}</p></section>}
-  </main>;
+
+      {content.fullDescription && (
+        <section className="product-formula-block">
+          <p className="eyebrow">The formulation</p>
+          <h2 className="section-title" style={{ fontSize: '2.2rem', marginTop: '0.4rem' }}>
+            Pure intention behind every drop
+          </h2>
+          <p style={{ marginTop: '1.25rem', color: 'var(--ff-charcoal-soft)', fontSize: '1.05rem', lineHeight: 1.85, maxWidth: '48rem' }}>
+            {content.fullDescription}
+          </p>
+        </section>
+      )}
+    </main>
+  );
 }

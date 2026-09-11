@@ -7,17 +7,25 @@ export default function CartPage() {
   const { cart, loading, mutating, error, updateQuantity, removeItem, subtotal } = useCart();
 
   if (loading) {
-    return <div className="mx-auto max-w-site px-6 py-24 md:px-10 text-charcoal-soft">Preparing your ritual…</div>;
+    return (
+      <div className="site-shell" style={{ padding: '6rem 0', textAlign: 'center', color: 'var(--ff-charcoal-soft)' }}>
+        Preparing your ritual…
+      </div>
+    );
   }
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="mx-auto max-w-site px-6 py-28 text-center md:px-10">
-        <div className="mx-auto max-w-lg">
+      <div className="site-shell" style={{ padding: '6rem 0', textAlign: 'center' }}>
+        <div style={{ maxWidth: '30rem', margin: '0 auto' }}>
           <p className="eyebrow">Your ritual</p>
-          <h1 className="mt-4 font-display text-6xl leading-none text-charcoal">Your bag is waiting.</h1>
-          <p className="mt-5 text-charcoal-soft">Explore the collection and find something to make space for.</p>
-          <div className="mt-6">
+          <h1 className="display-title" style={{ fontSize: 'clamp(2.5rem, 5vw, 3.8rem)', marginTop: '0.5rem' }}>
+            Your bag is waiting.
+          </h1>
+          <p style={{ marginTop: '1rem', color: 'var(--ff-charcoal-soft)', fontSize: '1.05rem', lineHeight: 1.75 }}>
+            Explore the collection and find something mindful to make space for.
+          </p>
+          <div style={{ marginTop: '2rem' }}>
             <Button href="/shop">Shop now</Button>
           </div>
         </div>
@@ -26,35 +34,49 @@ export default function CartPage() {
   }
 
   return (
-    <div className="mx-auto max-w-site px-6 py-12 md:px-10 md:py-20">
-      <div className="mb-12"><p className="eyebrow">Your ritual</p><h1 className="mt-3 font-display text-6xl text-charcoal">Shopping bag</h1></div>
-      {error && <p className="mb-5 text-sm text-burgundy" role="alert">{error}</p>}
-      <div className="cart-layout">
-        <section className="border-t border-stone">
+    <div className="site-shell" style={{ padding: '4rem 0 6rem' }}>
+      <div style={{ marginBottom: '2.5rem' }}>
+        <p className="eyebrow">Your ritual</p>
+        <h1 className="display-title" style={{ fontSize: 'clamp(2.5rem, 5vw, 3.8rem)' }}>
+          Shopping bag
+        </h1>
+      </div>
 
-          <div className="cart-item-list mt-2">
+      {error && (
+        <p style={{ marginBottom: '1.5rem', color: 'var(--ff-burgundy)', fontSize: '0.9rem' }} role="alert">
+          {error}
+        </p>
+      )}
+
+      <div className="cart-layout">
+        <section className="cart-items-panel">
+          <div className="cart-item-list">
             {cart.items.map((item) => (
               <div key={item.id} className="cart-item-row">
-                <div>
-                  <p className="font-display text-xl text-charcoal">{item.variant.product.name}</p>
-                  <p className="text-sm text-charcoal-soft">{item.variant.sizeLabel}</p>
+                <div className="cart-item-info">
+                  <p>{item.variant.product.name}</p>
+                  <p>{item.variant.sizeLabel}</p>
                 </div>
 
                 <div className="cart-item-actions">
-                  <div className="quantity-control">
+                  <div className="cart-qty-bar">
                     <button
+                      type="button"
                       aria-label={item.quantity === 1 ? `Remove ${item.variant.product.name}` : 'Decrease quantity'}
                       title={item.quantity === 1 ? 'Remove item' : 'Decrease quantity'}
                       onClick={() => updateQuantity(item.id, item.quantity - 1)}
                       disabled={mutating}
+                      className="cart-qty-btn"
                     >
                       −
                     </button>
-                    <span>{item.quantity}</span>
+                    <span className="cart-qty-count">{item.quantity}</span>
                     <button
+                      type="button"
                       aria-label="Increase quantity"
                       onClick={() => updateQuantity(item.id, item.quantity + 1)}
                       disabled={mutating}
+                      className="cart-qty-btn"
                     >
                       +
                     </button>
@@ -65,6 +87,7 @@ export default function CartPage() {
                   </span>
 
                   <button
+                    type="button"
                     aria-label="Remove item"
                     onClick={() => removeItem(item.id)}
                     disabled={mutating}
@@ -78,8 +101,8 @@ export default function CartPage() {
           </div>
         </section>
 
-        <aside className="cart-summary border-t border-stone bg-blush/45 p-6 md:p-8">
-          <p className="section-kicker product-section-kicker">Summary</p>
+        <aside className="cart-summary">
+          <p className="section-kicker" style={{ marginBottom: '1.25rem' }}>Order summary</p>
           <div className="summary-row">
             <span>Subtotal</span>
             <strong>₹{subtotal.toLocaleString('en-IN')}</strong>
@@ -88,9 +111,11 @@ export default function CartPage() {
             <span>Shipping</span>
             <strong>Calculated at checkout</strong>
           </div>
-          <p className="summary-note">Shipping and taxes calculated at checkout.</p>
-          <div className="mt-6">
-            <Button href="/checkout" className="w-full">Proceed to checkout</Button>
+          <p className="summary-note">
+            Taxes and courier shipping calculated at next step. Free delivery available on eligible orders.
+          </p>
+          <div style={{ marginTop: '2rem' }}>
+            <Button href="/checkout" className="btn-block">Proceed to checkout</Button>
           </div>
         </aside>
       </div>

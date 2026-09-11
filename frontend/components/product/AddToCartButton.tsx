@@ -29,10 +29,16 @@ export function AddToCartButton({ variantId, disabled = false }: { variantId: st
     }
   }
 
-  return <div>
-    <Button type="button" onClick={handleAdd} disabled={disabled || adding}>
-      {adding ? 'Adding...' : added ? 'Added to cart' : 'Add to cart'}
-    </Button>
-    {error && <p className="mt-3 text-sm text-burgundy">{error} <Link href="/login" className="underline underline-offset-4">Log in</Link></p>}
-  </div>;
+  return (
+    <div>
+      <Button type="button" onClick={handleAdd} disabled={disabled || adding}>
+        {adding ? 'Adding...' : added ? 'Added to cart' : 'Add to cart'}
+      </Button>
+      {error && (
+        <p style={{ marginTop: '0.75rem', fontSize: '0.82rem', color: 'var(--ff-burgundy)' }}>
+          {error} <Link href="/login" style={{ textDecoration: 'underline', fontWeight: 600 }}>Log in</Link>
+        </p>
+      )}
+    </div>
+  );
 }

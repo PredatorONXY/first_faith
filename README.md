@@ -18,25 +18,43 @@ first-faith/
 - A Supabase project (PostgreSQL + Auth + Storage)
 - A Razorpay account (test mode is fine to start)
 
-## Backend setup
+## Production Deployment (Single Application, One Port, One Service)
+
+In production, the Next.js frontend and NestJS backend run as a **single unified application** on a single port and single public URL.
+
+### 1. Build the unified application
+
+From the project root:
 
 ```bash
-cd backend
-npm install
-cp .env.example .env      # fill in DATABASE_URL, Supabase and Razorpay values
-npx prisma generate
-npx prisma migrate dev --name init
-npm run start:dev         # http://localhost:4000/api/v1
+npm run build
 ```
 
-## Frontend setup
+This generates the Prisma client, builds the NestJS backend into `backend/dist`, and creates the optimized Next.js production build into `frontend/.next`.
+
+### 2. Start the unified production server
 
 ```bash
-cd frontend
-npm install
-cp .env.example .env.local  # fill in NEXT_PUBLIC_* values
-npm run dev                 # http://localhost:3000
+npm start
 ```
+
+- **Open the App**: Visit [http://localhost:4000](http://localhost:4000) (or the port set in `$PORT`).
+- **Frontend**: Available directly at `/` and all routes (`/products`, `/cart`, `/login`, `/admin`, etc.) with SPA fallback and SSR.
+- **Backend API**: Available on the same domain and port at `/api/*` (e.g. `GET /api/products`). Legacy `/api/v1/*` endpoints are automatically rewritten for backwards compatibility.
+
+---
+
+## Local Development Setup
+
+To run both backend and frontend concurrently in development mode with live reload:
+
+```bash
+npm run dev
+```
+
+- Frontend development server runs on [http://localhost:3000](http://localhost:3000) and proxies `/api/*` and `/uploads/*` requests to the NestJS backend on port `4000`.
+
+
 
 ## What's implemented so far (Phase 1–2 slice)
 

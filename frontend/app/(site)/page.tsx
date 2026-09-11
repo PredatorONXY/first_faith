@@ -4,64 +4,179 @@ import { ProductCard } from '../../components/product/ProductCard';
 import { Button } from '../../components/ui/Button';
 import heroImage from '../../img/IMG-20260831-WA0012.jpg';
 import ritualImage from '../../img/IMG-20260831-WA0008.jpg';
-import ingredientImage from '../../img/IMG-20260831-WA0016.jpg';
 
 const APPROACH = [
-  ['01', 'Botanicals', 'Plant-led ingredients selected for comfort, balance, and a sensorial daily ritual.'],
-  ['02', 'Actives', 'Purposeful cosmetic ingredients chosen for what skin actually needs.'],
-  ['03', 'Formulation', 'Modern textures and considered combinations that make consistency feel effortless.'],
+  {
+    number: '01',
+    title: 'Botanicals',
+    body: 'Plant-led ingredients inspired by nature and selected for comfort, balance, and skin-conditioning benefits.',
+  },
+  {
+    number: '02',
+    title: 'Actives',
+    body: 'Purposeful cosmetic actives chosen with scientific precision for what your skin barrier actually needs.',
+  },
+  {
+    number: '03',
+    title: 'Formulation',
+    body: 'Balanced textures and considered combinations that make consistency and everyday care feel effortless.',
+  },
 ];
 
 export default async function HomePage() {
   const products = await getPublishedProducts().catch(() => []);
+  const featuredProducts = products.slice(0, 4);
 
   return (
     <>
-      <section className="site-shell grid min-h-[calc(100vh-5rem)] items-center gap-10 px-6 py-12 md:grid-cols-[0.88fr_1.12fr] md:px-10 md:py-20">
-        <div className="reveal max-w-xl py-8 md:py-16">
-          <p className="eyebrow">Perfect blend of nature &amp; science</p>
-          <h1 className="mt-6 font-display text-[clamp(4rem,8vw,8rem)] leading-[0.86] tracking-[-0.06em] text-charcoal">Beyond just skincare.</h1>
-          <p className="mt-8 max-w-md text-base leading-8 text-charcoal-soft md:text-lg">Thoughtfully selected botanicals. Purposeful cosmetic actives. Modern formulations for a more considered daily ritual.</p>
-          <div className="mt-10 flex flex-wrap gap-4">
-            <Button href="/shop">Shop the collection</Button>
-            <Button href="/about" variant="outline">Our philosophy</Button>
+      {/* 1. HERO SECTION */}
+      <section className="hero-section">
+        <div className="site-shell hero-grid">
+          <div className="hero-copy">
+            <span className="brand-pill">Beyond Just Skincare</span>
+            <h1 className="hero-title">Perfect blend of nature &amp; science</h1>
+            <p className="hero-text">
+              Thoughtfully selected botanical ingredients. Purposeful cosmetic actives.
+              Modern formulations, built without compromise for balanced, radiant skin.
+            </p>
+            <div className="hero-actions">
+              <Button href="/shop">Shop the collection</Button>
+              <Button href="/ingredients" variant="outline">Explore ingredients</Button>
+            </div>
+          </div>
+
+          <div className="hero-panel">
+            <div className="hero-media-wrap">
+              <Image
+                src={heroImage}
+                alt="First Faith skincare product display"
+                fill
+                priority
+                style={{ objectFit: 'cover' }}
+                sizes="(min-width: 768px) 50vw, 100vw"
+              />
+              <div className="hero-overlay">
+                <div>
+                  <span className="hero-overlay-badge">First Faith / 01</span>
+                  <p className="hero-overlay-label">Mindfully made</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="reveal reveal-delay-1 relative min-h-[560px] overflow-hidden bg-blush md:min-h-[720px]">
-          <Image src={heroImage} alt="First Faith skincare collection" fill priority className="object-cover" sizes="(min-width: 768px) 60vw, 100vw" />
-          <div className="absolute bottom-6 left-6 border border-white/40 bg-white/75 px-5 py-4 backdrop-blur-sm">
-            <p className="text-[0.62rem] uppercase tracking-[0.2em] text-burgundy">First Faith / 01</p>
-            <p className="mt-1 font-display text-xl text-charcoal">Mindfully made.</p>
+      </section>
+
+      {/* 2. THE ESSENTIALS / COLLECTION */}
+      <section className="section-block">
+        <div className="site-shell">
+          <div className="section-header">
+            <div>
+              <p className="section-kicker">Shop the essentials</p>
+              <h2 className="section-title">Our collection</h2>
+            </div>
+            <Button href="/shop" variant="ghost">View all products →</Button>
+          </div>
+
+          {featuredProducts.length > 0 ? (
+            <div className="product-grid">
+              {featuredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--ff-charcoal-soft)' }}>
+              The collection is currently being prepared.
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* 3. STORY BAND / PHILOSOPHY */}
+      <section className="story-band">
+        <div className="site-shell story-layout">
+          <p className="section-kicker">Beyond Just Skincare.</p>
+          <h2 className="story-title">Thoughtful formulas for everyday rituals.</h2>
+          <p className="story-text">
+            Rooted in nature and shaped by science, First Faith brings together mindful ingredients,
+            elegant textures, and practical routines for skin that feels balanced, cared for, and at ease.
+          </p>
+        </div>
+      </section>
+
+      {/* 4. THE RITUAL */}
+      <section className="section-block">
+        <div className="site-shell ritual-layout">
+          <div className="ritual-copy">
+            <p className="section-kicker">The First Faith ritual</p>
+            <h2 className="ritual-title">A softer way to care for your skin.</h2>
+            <p className="ritual-text">
+              Created to feel as good as it looks, each step is designed around comfort,
+              balance, and visible glow—without unnecessary additives or harsh extremes.
+            </p>
+            <ul className="ritual-points">
+              <li>Clinically informed formulations for lasting skin resilience</li>
+              <li>Daily-use textures that layer beautifully and absorb seamlessly</li>
+              <li>Results-first ingredients with a comforting, sensorial finish</li>
+            </ul>
+            <div style={{ marginTop: '2.5rem' }}>
+              <Button href="/about" variant="outline">Our philosophy</Button>
+            </div>
+          </div>
+
+          <div className="ritual-media-wrap">
+            <Image
+              src={ritualImage}
+              alt="First Faith skincare routine"
+              fill
+              style={{ objectFit: 'cover' }}
+              sizes="(min-width: 768px) 50vw, 100vw"
+            />
           </div>
         </div>
       </section>
 
-      <section className="border-y border-charcoal/10 bg-blush/45">
-        <div className="site-shell grid gap-10 px-6 py-20 md:grid-cols-[0.7fr_1.3fr] md:px-10 md:py-28">
-          <p className="eyebrow">The First Faith point of view</p>
-          <div>
-            <p className="font-display text-4xl leading-tight text-charcoal md:text-6xl">Nature gives us the language. Science helps us refine the conversation.</p>
-            <p className="mt-8 max-w-2xl text-base leading-8 text-charcoal-soft">We bring botanical ingredients and purposeful actives into a quieter kind of skincare: formulas designed to feel beautiful in your hands and make sense in your routine.</p>
+      {/* 5. OUR APPROACH */}
+      <section className="approach-section" style={{ background: 'rgba(255, 255, 255, 0.45)', borderTop: '1px solid rgba(32, 28, 27, 0.08)', borderBottom: '1px solid rgba(32, 28, 27, 0.08)' }}>
+        <div className="site-shell">
+          <div className="section-header" style={{ marginBottom: '1.5rem' }}>
+            <div>
+              <p className="section-kicker">Our approach</p>
+              <h2 className="section-title">Formulated with intention</h2>
+            </div>
+          </div>
+          <div className="approach-grid">
+            {APPROACH.map((item) => (
+              <article key={item.title} className="approach-card">
+                <span className="approach-number">{item.number}</span>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="site-shell px-6 py-20 md:px-10 md:py-28">
-        <div className="flex flex-wrap items-end justify-between gap-6">
-          <div><p className="eyebrow">The essentials</p><h2 className="mt-3 font-display text-5xl text-charcoal md:text-6xl">Your daily ritual.</h2></div>
-          <Button href="/shop" variant="ghost">View all products →</Button>
+      {/* 6. NEWSLETTER */}
+      <section className="section-block">
+        <div className="site-shell">
+          <div className="newsletter-box">
+            <p className="section-kicker">Stay close</p>
+            <h2 className="newsletter-title">Stay close to First Faith</h2>
+            <p className="newsletter-copy">
+              Be the first to know about new formulations, mindful rituals, and limited restocks.
+            </p>
+            <form className="newsletter-form" action="/contact">
+              <input
+                type="email"
+                required
+                placeholder="Your email address"
+                aria-label="Your email address"
+              />
+              <Button type="submit">Subscribe</Button>
+            </form>
+          </div>
         </div>
-        {products.length > 0 ? <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{products.slice(0, 4).map((product) => <ProductCard key={product.id} product={product} />)}</div> : <p className="mt-12 text-charcoal-soft">The collection is being prepared.</p>}
       </section>
-
-      <section className="site-shell grid gap-8 px-6 pb-20 md:grid-cols-[1.05fr_0.95fr] md:px-10 md:pb-28">
-        <div className="relative min-h-[480px] overflow-hidden bg-blush"><Image src={ritualImage} alt="A First Faith skincare ritual" fill className="object-cover" sizes="(min-width: 768px) 55vw, 100vw" /></div>
-        <div className="flex flex-col justify-center px-2 md:px-10"><p className="eyebrow">A considered approach</p><h2 className="mt-4 font-display text-5xl leading-[0.95] text-charcoal md:text-6xl">Good skin care, made personal.</h2><p className="mt-8 leading-8 text-charcoal-soft">From Rice Water and Oat to Niacinamide, Hyaluronic Acid, Ceramides, and Alpha Arbutin, every ingredient has a role in the ritual.</p><Button href="/ingredients" variant="ghost" className="mt-8 self-start">Explore ingredients →</Button></div>
-      </section>
-
-      <section className="bg-charcoal text-white"><div className="site-shell grid gap-12 px-6 py-20 md:grid-cols-[0.8fr_1.2fr] md:px-10 md:py-28"><div><p className="text-[0.65rem] uppercase tracking-[0.2em] text-white/50">Our approach</p><div className="relative mt-8 min-h-[280px] overflow-hidden"><Image src={ingredientImage} alt="First Faith ingredients" fill className="object-cover" sizes="35vw" /></div></div><div className="grid gap-8 md:grid-cols-3 md:pt-12">{APPROACH.map(([number, title, body]) => <article key={title} className="border-t border-white/20 pt-5"><span className="text-xs text-white/45">{number}</span><h3 className="mt-8 font-display text-3xl">{title}</h3><p className="mt-4 text-sm leading-7 text-white/60">{body}</p></article>)}</div></div></section>
-
-      <section className="site-shell px-6 py-24 text-center md:px-10 md:py-32"><p className="eyebrow">Make space for your ritual</p><h2 className="mx-auto mt-5 max-w-3xl font-display text-6xl leading-[0.9] text-charcoal md:text-8xl">Your skin. Your ritual.</h2><Button href="/shop" className="mt-10">Shop all products</Button></section>
     </>
   );
 }

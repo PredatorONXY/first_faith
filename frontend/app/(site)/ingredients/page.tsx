@@ -158,15 +158,23 @@ function IngredientCard({ ingredient }: { ingredient: IngredientEntry }) {
   return (
     <article className="ingredient-card">
       <div className="ingredient-media">
-        <Image src={ingredient.image} alt={ingredient.alt} fill className="object-cover" sizes="(min-width: 768px) 33vw, 100vw" />
+        <Image
+          src={ingredient.image}
+          alt={ingredient.alt}
+          fill
+          style={{ objectFit: 'cover' }}
+          sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+        />
       </div>
-      <div className="mt-5">
-        <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-burgundy">{ingredient.category}</p>
-        <h2 className="mt-4 font-display text-[2.1rem] leading-[0.92] tracking-[-0.04em] text-charcoal md:text-[2.5rem]">{ingredient.name}</h2>
-        <p className="mt-4 text-sm leading-7 text-charcoal-soft">{ingredient.description}</p>
-        <div className="mt-6 border-t border-stone pt-4">
-          <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-burgundy">Found in</p>
-          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-2 text-sm text-charcoal-soft">
+      <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+        <span className="eyebrow">{ingredient.category}</span>
+        <h2 className="ingredient-card-title">{ingredient.name}</h2>
+        <p className="ingredient-desc">{ingredient.description}</p>
+        <div className="ingredient-found-in">
+          <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--ff-burgundy)', fontWeight: 600, marginBottom: '0.4rem' }}>
+            Found in
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
             {ingredient.products.map((product) => (
               <Link key={product.href} href={product.href} className="ingredient-link">
                 {product.label}
@@ -183,80 +191,57 @@ export default function IngredientsPage() {
   return (
     <>
       <section className="page-intro">
-        <div className="site-shell px-6 md:px-10">
+        <div className="site-shell">
           <p className="eyebrow">Inside the formula</p>
-          <h1 className="display-title">The ingredients<br />with intention.</h1>
-          <p className="mt-8 max-w-xl text-base leading-8 text-charcoal-soft">
+          <h1 className="display-title">
+            The ingredients<br />
+            with intention.
+          </h1>
+          <p style={{ marginTop: '1.25rem', maxWidth: '36rem', color: 'var(--ff-charcoal-soft)', fontSize: '1.05rem', lineHeight: 1.75 }}>
             Botanical ingredients and purposeful actives, selected for the role they play in a balanced routine.
           </p>
         </div>
       </section>
 
-      <section className="site-shell px-6 py-20 md:px-10 md:py-28">
-        <div className="grid gap-10 md:grid-cols-[0.82fr_1.18fr] md:items-center">
-          <div className="relative min-h-[420px] overflow-hidden bg-blush md:min-h-[560px]">
-            <Image
-              src={riceWaterImage}
-              alt="First Faith ingredient library"
-              fill
-              className="object-cover"
-              sizes="(min-width: 768px) 42vw, 100vw"
-            />
+      <section className="section-block">
+        <div className="site-shell">
+          <div className="section-header" style={{ marginBottom: '1rem' }}>
+            <div>
+              <p className="section-kicker">Ingredient catalog</p>
+              <h2 className="section-title">Formulation library</h2>
+            </div>
           </div>
-
-          <div>
-            <p className="eyebrow">Our library</p>
-            <p className="mt-8 max-w-xl text-lg leading-8 text-charcoal-soft">
-              Every formula begins with intention. We combine botanical ingredients with purposeful cosmetic actives to create routines that feel considered, balanced, and beautifully uncomplicated.
-            </p>
+          <div className="ingredients-grid">
+            {INGREDIENTS.map((ingredient) => (
+              <IngredientCard key={ingredient.name} ingredient={ingredient} />
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="site-shell px-6 pb-20 md:px-10 md:pb-28">
-        <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-          {INGREDIENTS.map((ingredient) => (
-            <IngredientCard key={ingredient.name} ingredient={ingredient} />
-          ))}
-        </div>
-      </section>
-
-      <section className="border-y border-charcoal/10 bg-blush/40">
-        <div className="site-shell px-6 py-20 md:px-10 md:py-28">
-          <div className="grid gap-8 md:grid-cols-2">
-            {FEATURED_INGREDIENTS.map((ingredient, index) => (
-              <div key={ingredient.name} className="grid gap-6 md:items-center md:gap-8 md:grid-cols-2">
-                <div className={index % 2 === 1 ? 'md:order-2' : ''}>
-                  <div className="relative aspect-[4/5] overflow-hidden bg-blush">
-                    <Image
-                      src={ingredient.image}
-                      alt={ingredient.alt}
-                      fill
-                      className="object-cover"
-                      sizes="(min-width: 768px) 26vw, 100vw"
-                    />
-                  </div>
+      <section className="story-band">
+        <div className="site-shell story-layout" style={{ maxWidth: '1080px' }}>
+          <p className="section-kicker">Hero ingredients</p>
+          <h2 className="story-title">Considered actives in the spotlight</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', marginTop: '2.5rem', textAlign: 'left' }}>
+            {FEATURED_INGREDIENTS.map((item) => (
+              <div key={item.name} style={{ background: 'rgba(255, 255, 255, 0.7)', border: '1px solid rgba(32, 28, 27, 0.08)', borderRadius: '16px', padding: '1.25rem', boxShadow: '0 8px 24px rgba(32, 28, 27, 0.03)' }}>
+                <div style={{ position: 'relative', width: '100%', aspectRatio: '1', borderRadius: '10px', overflow: 'hidden', marginBottom: '1rem', background: 'var(--ff-blush-soft)' }}>
+                  <Image src={item.image} alt={item.alt} fill style={{ objectFit: 'cover' }} sizes="(min-width: 768px) 20vw, 50vw" />
                 </div>
-                <div className={index % 2 === 1 ? 'md:order-1' : ''}>
-                  <p className="eyebrow">Hero ingredient</p>
-                  <h3 className="mt-4 font-display text-4xl leading-[0.96] tracking-[-0.05em] text-charcoal md:text-5xl">
-                    {ingredient.name}
-                  </h3>
-                  <p className="mt-5 max-w-md text-base leading-8 text-charcoal-soft">{ingredient.text}</p>
-                </div>
+                <h3 style={{ fontFamily: 'var(--ff-font-display), Georgia, serif', fontSize: '1.3rem', color: 'var(--ff-charcoal)', margin: 0 }}>{item.name}</h3>
+                <p style={{ marginTop: '0.45rem', fontSize: '0.86rem', color: 'var(--ff-charcoal-soft)', lineHeight: 1.6 }}>{item.text}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="site-shell px-6 py-20 md:px-10 md:py-28">
-        <div className="max-w-4xl">
-          <p className="eyebrow">Formula philosophy</p>
-          <h2 className="mt-6 font-display text-5xl leading-[0.92] tracking-[-0.05em] text-charcoal md:text-7xl">
-            Nature, selected with purpose.
-          </h2>
-          <p className="mt-8 max-w-2xl text-base leading-8 text-charcoal-soft md:text-lg">
+      <section className="section-block">
+        <div className="site-shell story-layout">
+          <p className="section-kicker">Formula philosophy</p>
+          <h2 className="story-title">Nature, selected with purpose.</h2>
+          <p className="story-text">
             Botanical ingredients and purposeful cosmetic actives are brought together within thoughtfully designed formulas, creating a ritual that feels grounded, balanced, and beautifully considered.
           </p>
         </div>
@@ -264,3 +249,5 @@ export default function IngredientsPage() {
     </>
   );
 }
+
+

@@ -16,39 +16,52 @@ export function ProductCard({ product }: { product: Product }) {
   const displayName = content?.name ?? product.name;
   const displayTagline = content?.tagline ?? product.tagline;
   const displaySize = content?.sizeLabel ?? variant?.sizeLabel;
+  const price = variant ? Number(variant.price).toLocaleString('en-IN') : null;
 
   return (
-    <article className="product-card group block overflow-hidden border border-stone bg-white/60 transition-all duration-500 hover:-translate-y-1 hover:border-burgundy/40 hover:shadow-[0_16px_36px_rgba(32,28,27,0.08)]">
-      <Link href={`/products/${product.slug}`}>
-      <div className="relative aspect-[4/5] overflow-hidden bg-blush-soft">
-        {image ? (
-          <Image
-            src={image.src}
-            alt={image.alt}
-            fill
-            className="object-cover transition-transform duration-700 group-hover:scale-[1.045]"
-            sizes="(min-width: 768px) 25vw, 50vw"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-blush-soft text-xs uppercase tracking-[0.18em] text-charcoal-soft">
-            First Faith
-          </div>
-        )}
-      </div>
-      </Link>
-      <div className="p-5 md:p-6">
-        <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-burgundy">Essential ritual</p>
-        <h3 className="mt-2 font-display text-xl text-charcoal">{displayName}</h3>
-        {displayTagline && <p className="mt-1 text-sm text-charcoal-soft">{displayTagline}</p>}
-        <div className="mt-3 flex items-center justify-between">
-          <span className="text-sm text-charcoal-soft">{displaySize}</span>
-          {variant ? (
-            <span className="font-medium text-burgundy">₹{Number(variant.price).toLocaleString('en-IN')}</span>
+    <article className="product-card">
+      <Link href={`/products/${product.slug}`} className="product-card-media-link" aria-label={`View ${displayName}`}>
+        <div className="product-card-image-wrap">
+          <span className="product-card-badge">Essential</span>
+          {image ? (
+            <Image
+              src={image.src}
+              alt={image.alt}
+              fill
+              className="product-card-image"
+              sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+            />
           ) : (
-            <span className="text-sm text-charcoal-soft">Price coming soon</span>
+            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--ff-charcoal-soft)' }}>
+              First Faith
+            </div>
           )}
         </div>
-        {variant && <CartProductActions variantId={variant.id} stockQuantity={variant.inventory?.stockQuantity ?? 0} />}
+      </Link>
+
+      <div className="product-card-body">
+        <p className="product-card-eyebrow">Daily ritual</p>
+        <h3 className="product-card-title">
+          <Link href={`/products/${product.slug}`}>{displayName}</Link>
+        </h3>
+        {displayTagline && (
+          <p className="product-card-tagline">{displayTagline}</p>
+        )}
+
+        <div className="product-card-meta">
+          <span className="product-card-size">{displaySize}</span>
+          {price ? (
+            <span className="product-card-price">₹{price}</span>
+          ) : (
+            <span className="product-card-size">Coming soon</span>
+          )}
+        </div>
+
+        {variant && (
+          <div className="product-card-actions">
+            <CartProductActions variantId={variant.id} stockQuantity={variant.inventory?.stockQuantity ?? 0} />
+          </div>
+        )}
       </div>
     </article>
   );
