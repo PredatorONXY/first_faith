@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "First Faith — NestJS backend API",
+  "main": "dist/src/serverless.js",
   "scripts": {
     "build": "nest build",
     "start": "node --env-file=.env node_modules/@nestjs/cli/bin/nest.js start",

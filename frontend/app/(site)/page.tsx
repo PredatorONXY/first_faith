@@ -23,6 +23,8 @@ const APPROACH = [
   },
 ];
 
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
   const products = await getPublishedProducts().catch(() => []);
   const featuredProducts = products.slice(0, 4);

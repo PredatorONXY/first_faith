@@ -25,6 +25,9 @@ export default function OrderDetailPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (!params?.id) {
+      return;
+    }
     if (!getAccessToken()) {
       router.replace('/login');
       return;
@@ -32,7 +35,7 @@ export default function OrderDetailPage() {
     apiFetch<Order>(`/orders/${params.id}`, { next: { revalidate: 0 } })
       .then(setOrder)
       .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Unable to load order'));
-  }, [params.id, router]);
+  }, [params?.id, router]);
 
   if (error) return <main className="site-shell px-6 py-24 md:px-10"><p className="text-burgundy">{error}</p></main>;
   if (!order) return <main className="site-shell px-6 py-24 md:px-10"><p className="text-charcoal-soft">Loading order...</p></main>;

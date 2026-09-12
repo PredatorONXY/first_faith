@@ -19,6 +19,7 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  const currentPath = pathname ?? '';
   const [signedIn, setSignedIn] = useState(false);
   const { cart, refresh } = useCart();
   const cartCount = cart?.items.reduce((total, item) => total + item.quantity, 0) ?? 0;
@@ -67,7 +68,7 @@ export function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className={`nav-link ${pathname.startsWith(link.href) ? 'is-active' : ''}`}
+              className={`nav-link ${currentPath.startsWith(link.href) ? 'is-active' : ''}`}
             >
               {link.label}
             </Link>
@@ -77,13 +78,13 @@ export function Header() {
         <div className="header-actions">
           <Link
             href="/account"
-            className={`header-action-link ${pathname.startsWith('/account') ? 'is-active' : ''}`}
+            className={`header-action-link ${currentPath.startsWith('/account') ? 'is-active' : ''}`}
           >
             {signedIn ? 'My account' : 'Account'}
           </Link>
           <Link
             href="/cart"
-            className={`header-action-link ${pathname.startsWith('/cart') ? 'is-active' : ''}`}
+            className={`header-action-link ${currentPath.startsWith('/cart') ? 'is-active' : ''}`}
           >
             Cart
             {cartCount > 0 && <span className="cart-count-badge">{cartCount}</span>}

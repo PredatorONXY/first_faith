@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   description: 'Browse the full First Faith skincare collection — botanical ingredients and purposeful cosmetic actives.',
 };
 
+export const dynamic = 'force-dynamic';
+
 export default async function ShopPage() {
   const products = await getPublishedProducts().catch(() => []);
 

@@ -1,9 +1,4 @@
 /** @type {import('next').NextConfig} */
-const BACKEND_INTERNAL_URL =
-  process.env.BACKEND_INTERNAL_URL ||
-  (process.env.INTERNAL_API_URL ? process.env.INTERNAL_API_URL.replace(/\/api(\/v1)?\/?$/, '') : null) ||
-  'http://localhost:4000';
-
 const nextConfig = {
   images: {
     remotePatterns: [
@@ -33,23 +28,62 @@ const nextConfig = {
       },
     ],
   },
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${BACKEND_INTERNAL_URL}/api/:path*`,
-      },
-      {
-        source: '/api/v1/:path*',
-        destination: `${BACKEND_INTERNAL_URL}/api/:path*`,
-      },
-      {
-        source: '/uploads/:path*',
-        destination: `${BACKEND_INTERNAL_URL}/uploads/:path*`,
-      },
-    ];
+  experimental: {
+    serverComponentsExternalPackages: [
+      'first-faith-backend',
+      '@nestjs/core',
+      '@nestjs/common',
+      '@nestjs/platform-express',
+      '@nestjs/throttler',
+      '@nestjs/config',
+      '@nestjs/jwt',
+      '@prisma/client',
+      'prisma',
+      'bcryptjs',
+      'class-transformer',
+      'class-validator',
+      'google-auth-library',
+      'helmet',
+      'razorpay',
+      'reflect-metadata',
+    ],
+    outputFileTracingIncludes: {
+      '/api/**': ['../backend/dist/**', '../backend/prisma/**'],
+    },
+  },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      const existingExternals = Array.isArray(config.externals)
+        ? config.externals
+        : [config.externals].filter(Boolean);
+
+      config.externals = [
+        ...existingExternals,
+        ({ request }, callback) => {
+          if (
+            request &&
+            (request === 'first-faith-backend' ||
+              request.startsWith('first-faith-backend/') ||
+              /^@nestjs\//.test(request) ||
+              /^@prisma\//.test(request) ||
+              request === 'prisma' ||
+              request === 'express' ||
+              request === 'class-transformer' ||
+              request === 'class-transformer/storage' ||
+              request === 'class-validator' ||
+              request === 'bcryptjs' ||
+              request === 'helmet' ||
+              request === 'razorpay' ||
+              request.includes('backend/dist'))
+          ) {
+            return callback(null, `commonjs ${request}`);
+          }
+          callback();
+        },
+      ];
+    }
+    return config;
   },
 };
 
 module.exports = nextConfig;
-

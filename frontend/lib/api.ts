@@ -6,7 +6,7 @@ export function resolveApiBaseUrl(): string {
     if (process.env.NEXT_PUBLIC_API_URL && /^https?:\/\//i.test(process.env.NEXT_PUBLIC_API_URL)) {
       return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
     }
-    const port = process.env.PORT || 4000;
+    const port = process.env.PORT || 3000;
     return `http://127.0.0.1:${port}/api`;
   }
 

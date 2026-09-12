@@ -44,13 +44,13 @@ function AccountPageContent() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const tokenFromQuery = searchParams.get('token');
-    const googleError = searchParams.get('googleError');
+    const tokenFromQuery = searchParams?.get('token');
+    const googleError = searchParams?.get('googleError');
 
     if (tokenFromQuery) {
       setAccessToken(tokenFromQuery);
       window.dispatchEvent(new Event('ff:auth-changed'));
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(searchParams?.toString() ?? '');
       params.delete('token');
       router.replace(params.toString() ? `/account?${params.toString()}` : '/account');
     }
