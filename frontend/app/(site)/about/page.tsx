@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import storyImage from '../../../img/IMG-20260831-WA0009.jpg';
-import ritualImage from '../../../img/IMG-20260831-WA0013.jpg';
+import ritualImage from '../../../img/all_in_one_prod.png';
 import { Button } from '../../../components/ui/Button';
 
 export const metadata: Metadata = {

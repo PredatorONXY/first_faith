@@ -19,13 +19,22 @@ export default function RegisterPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      setError('Enter a valid email address.');
+      return;
+    }
+    if (password.length < 8 || password.length > 72 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      setError('Use 8–72 characters with at least one letter and one number.');
+      return;
+    }
     setLoading(true);
     setError(null);
 
     try {
       const result = await apiFetch<{ accessToken: string }>('/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ email, password, fullName }),
+        body: JSON.stringify({ email: normalizedEmail, password, fullName: fullName.trim() }),
       });
       setAccessToken(result.accessToken);
       window.dispatchEvent(new Event('ff:auth-changed'));
@@ -93,6 +102,8 @@ export default function RegisterPage() {
                 type={showPassword ? 'text' : 'password'}
                 required
                 minLength={8}
+                maxLength={72}
+                pattern="(?=.*[A-Za-z])(?=.*\d).*"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="form-input"

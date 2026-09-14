@@ -1,4 +1,5 @@
 import { apiFetch } from '../lib/api';
+import { unstable_cache } from 'next/cache';
 
 export interface SiteSettings {
   store_name?: string;
@@ -11,6 +12,14 @@ export interface SiteSettings {
   return_policy?: string;
 }
 
-export function getSiteSettings() {
+async function loadSiteSettings() {
   return apiFetch<SiteSettings>('/settings');
+}
+
+const getCachedSiteSettings = unstable_cache(loadSiteSettings, ['site-settings'], {
+  revalidate: 60,
+});
+
+export function getSiteSettings() {
+  return typeof window === 'undefined' ? getCachedSiteSettings() : loadSiteSettings();
 }

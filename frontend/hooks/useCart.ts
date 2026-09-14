@@ -85,8 +85,10 @@ export function useCart({ autoLoad = true }: { autoLoad?: boolean } = {}) {
       sharedCart = nextCart;
       setCart(nextCart);
       setError('');
+      // All mounted cart consumers receive the response we already have.
+      // Dispatching ff:cart-changed here caused each consumer to immediately
+      // fetch the same cart again after every mutation.
       window.dispatchEvent(new Event('ff:cart-state-changed'));
-      window.dispatchEvent(new Event('ff:cart-changed'));
       return nextCart;
     } catch (mutationError) {
       setError(mutationError instanceof Error ? mutationError.message : 'Unable to update cart');
@@ -127,5 +129,10 @@ export function useCart({ autoLoad = true }: { autoLoad?: boolean } = {}) {
   const subtotal =
     cart?.items.reduce((sum, item) => sum + Number(item.variant.price) * item.quantity, 0) ?? 0;
 
-  return { cart, loading, mutating, error, addItem, updateQuantity, removeItem, subtotal, refresh };
+  const clear = useCallback(() => {
+    publishCart(null);
+    setCart(null);
+  }, []);
+
+  return { cart, loading, mutating, error, addItem, updateQuantity, removeItem, subtotal, refresh, clear };
 }

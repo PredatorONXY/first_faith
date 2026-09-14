@@ -2,7 +2,7 @@ import Image from 'next/image';
 import { getPublishedProducts } from '../../services/products';
 import { ProductCard } from '../../components/product/ProductCard';
 import { Button } from '../../components/ui/Button';
-import heroImage from '../../img/IMG-20260831-WA0012.jpg';
+import heroImage from '../../img/main_image.png';
 import ritualImage from '../../img/IMG-20260831-WA0008.jpg';
 
 const APPROACH = [
@@ -54,8 +54,9 @@ export default async function HomePage() {
                 alt="First Faith skincare product display"
                 fill
                 priority
+                quality={85}
                 style={{ objectFit: 'cover' }}
-                sizes="(min-width: 768px) 50vw, 100vw"
+                sizes="(min-width: 1024px) 440px, (min-width: 768px) 45vw, 90vw"
               />
               <div className="hero-overlay">
                 <div>

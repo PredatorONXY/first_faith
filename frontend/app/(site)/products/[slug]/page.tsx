@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getProductBySlug } from '../../../../services/products';
 import { AddToCartButton } from '../../../../components/product/AddToCartButton';
 import { ProductImageGallery } from '../../../../components/product/ProductImageGallery';
+import { HeroIngredientCards } from '../../../../components/product/HeroIngredientCards';
 import { getProductContent } from '../../../../lib/productContent';
 import { getProductGalleryImages } from '../../../../lib/productImages';
 
@@ -36,16 +37,18 @@ export default async function ProductPage({ params }: Props) {
 
   const variant = product.variants.find((item) => item.isDefault) ?? product.variants[0];
   const available = (variant?.inventory?.stockQuantity ?? 0) > 0;
-  const galleryImages = getProductGalleryImages(product.slug).map((image) => ({
+  const localGalleryImages = getProductGalleryImages(product.slug).map((image) => ({
     src: image.src,
     alt: image.alt,
   }));
+  // Existing curated assets remain preferred, while products added through the
+  // admin can use their API-managed gallery without another request.
+  const galleryImages = localGalleryImages.length > 0
+    ? localGalleryImages
+    : product.images.map((image) => ({ src: image.url, alt: image.altText ?? content.name }));
   const heroIngredients = content.heroIngredients.length > 0
     ? content.heroIngredients
     : product.ingredients.filter((item) => item.role === 'HERO').map((item) => item.ingredient.name);
-  const powerIngredients = content.powerIngredients.length > 0
-    ? content.powerIngredients
-    : product.ingredients.filter((item) => item.role === 'POWER').map((item) => item.ingredient.name);
   const price = variant ? Number(variant.price).toLocaleString('en-IN') : null;
 
   return (
@@ -73,6 +76,10 @@ export default async function ProductPage({ params }: Props) {
             </p>
           )}
 
+          {heroIngredients.length > 0 && (
+            <HeroIngredientCards ingredients={heroIngredients} />
+          )}
+
           <div className="product-detail-actions">
             {variant && <AddToCartButton variantId={variant.id} disabled={!available} />}
             <span
@@ -83,46 +90,18 @@ export default async function ProductPage({ params }: Props) {
             </span>
           </div>
 
-          <div style={{ marginTop: '1.5rem' }}>
-            {heroIngredients.length > 0 && (
-              <div className="ingredient-meta-section">
-                <h2 className="ingredient-meta-title">Hero ingredients</h2>
-                <div className="ingredient-chip-list">
-                  {heroIngredients.map((item) => (
-                    <span key={item} className="ingredient-chip">
-                      {item}
-                    </span>
-                  ))}
-                </div>
+          {content.benefits.length > 0 && (
+            <div className="ingredient-meta-section">
+              <h2 className="ingredient-meta-title">Key benefits</h2>
+              <div className="benefit-badge-list">
+                {content.benefits.map((benefit) => (
+                  <span key={benefit} className="benefit-badge">
+                    {benefit}
+                  </span>
+                ))}
               </div>
-            )}
-
-            {powerIngredients.length > 0 && (
-              <div className="ingredient-meta-section">
-                <h2 className="ingredient-meta-title">Power ingredients</h2>
-                <div className="ingredient-chip-list">
-                  {powerIngredients.map((item) => (
-                    <span key={item} className="ingredient-chip">
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {content.benefits.length > 0 && (
-              <div className="ingredient-meta-section">
-                <h2 className="ingredient-meta-title">Key benefits</h2>
-                <div className="benefit-badge-list">
-                  {content.benefits.map((benefit) => (
-                    <span key={benefit} className="benefit-badge">
-                      {benefit}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 

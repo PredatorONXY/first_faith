@@ -4,11 +4,57 @@ import { PrismaService } from '../common/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
-const PUBLIC_PRODUCT_INCLUDE = {
-  images: { orderBy: { sortOrder: 'asc' as const } },
-  variants: { where: { isActive: true }, include: { inventory: true } },
-  ingredients: { include: { ingredient: true } },
-  categories: { include: { category: true } },
+// Keep public catalog payloads deliberately small. Product and image creation
+// metadata are not rendered by customers, and returning them for every card
+// makes the shop/home response and hydration work larger than necessary.
+const PUBLIC_CATALOG_INCLUDE = {
+  images: {
+    orderBy: { sortOrder: 'asc' as const },
+    select: { id: true, url: true, altText: true, sortOrder: true },
+  },
+  variants: {
+    where: { isActive: true },
+    select: {
+      id: true,
+      sizeLabel: true,
+      price: true,
+      compareAtPrice: true,
+      isDefault: true,
+      isActive: true,
+      inventory: { select: { stockQuantity: true } },
+    },
+  },
+  ingredients: {
+    select: {
+      role: true,
+      ingredient: { select: { id: true, name: true } },
+    },
+  },
+};
+
+// The detail page does not render catalogue categories or ingredient glossary
+// descriptions. Keeping this separate prevents every product visit from
+// fetching fields that cannot affect the page above (or below) the fold.
+const PUBLIC_PRODUCT_DETAIL_INCLUDE = {
+  images: {
+    orderBy: { sortOrder: 'asc' as const },
+    select: { id: true, url: true, altText: true, sortOrder: true },
+  },
+  variants: {
+    where: { isActive: true },
+    select: {
+      id: true,
+      sizeLabel: true,
+      price: true,
+      compareAtPrice: true,
+      isDefault: true,
+      inventory: { select: { stockQuantity: true } },
+    },
+  },
+  ingredients: {
+    // Ingredient names are enough for the hero/power chips.
+    select: { role: true, ingredient: { select: { name: true } } },
+  },
 };
 
 @Injectable()
@@ -20,14 +66,14 @@ export class ProductsService {
     return this.prisma.product.findMany({
       where: { status: ProductStatus.PUBLISHED },
       orderBy: { sortOrder: 'asc' },
-      include: PUBLIC_PRODUCT_INCLUDE,
+      include: PUBLIC_CATALOG_INCLUDE,
     });
   }
 
   async findBySlug(slug: string) {
     const product = await this.prisma.product.findUnique({
       where: { slug },
-      include: PUBLIC_PRODUCT_INCLUDE,
+      include: PUBLIC_PRODUCT_DETAIL_INCLUDE,
     });
 
     if (!product || product.status !== ProductStatus.PUBLISHED) {
@@ -41,7 +87,7 @@ export class ProductsService {
   findAllForAdmin() {
     return this.prisma.product.findMany({
       orderBy: { updatedAt: 'desc' },
-      include: PUBLIC_PRODUCT_INCLUDE,
+      include: PUBLIC_CATALOG_INCLUDE,
     });
   }
 
@@ -84,7 +130,7 @@ export class ProductsService {
             }
           : undefined,
       },
-      include: PUBLIC_PRODUCT_INCLUDE,
+      include: PUBLIC_CATALOG_INCLUDE,
     });
   }
 
@@ -102,7 +148,7 @@ export class ProductsService {
         suitableSkinTypes: dto.suitableSkinTypes,
         status: dto.status,
       },
-      include: PUBLIC_PRODUCT_INCLUDE,
+      include: PUBLIC_CATALOG_INCLUDE,
     });
   }
 

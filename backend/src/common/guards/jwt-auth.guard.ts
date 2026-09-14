@@ -24,7 +24,14 @@ export class JwtAuthGuard implements CanActivate {
 
     try {
       const payload = await this.jwt.verifyAsync<{ sub: string }>(authHeader.slice(7));
-      const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+      // The JWT only identifies the account. Read the current role from the
+      // database on every protected request so a client-controlled JWT payload
+      // (or a role changed after token issuance) can never grant privileges.
+      // Do not attach passwordHash or other account fields to the request.
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: { id: true, role: true },
+      });
 
       if (!user) {
         throw new UnauthorizedException('No matching account found');

@@ -21,6 +21,7 @@ export class AuthService {
   ) {}
 
   async register(email: string, password: string, fullName?: string) {
+    email = email.trim().toLowerCase();
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) {
       throw new ConflictException('An account with this email already exists');
@@ -35,6 +36,7 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
+    email = email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
       throw new UnauthorizedException('Invalid email or password');
@@ -161,7 +163,6 @@ export class AuthService {
         role: true,
         createdAt: true,
         updatedAt: true,
-        addresses: true,
       },
     });
   }
@@ -182,7 +183,7 @@ export class AuthService {
   }) {
     const existing = await this.prisma.address.count({ where: { userId } });
     return this.prisma.address.create({
-      data: { ...data, userId, isDefault: existing === 0 },
+      data: { ...data, phone: data.phone || undefined, userId, isDefault: existing === 0 },
     });
   }
 

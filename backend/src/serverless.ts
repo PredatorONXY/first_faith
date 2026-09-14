@@ -57,7 +57,7 @@ async function bootstrapServerless(): Promise<{ server: Express; app: INestAppli
 
   // 3. CORS Configuration
   app.enableCors({
-    origin: true,
+    origin: process.env.FRONTEND_URL || ['http://localhost:3000', 'http://127.0.0.1:3000'],
     credentials: true,
   });
 
@@ -109,4 +109,3 @@ export default async function serverlessHandler(req: Request, res: Response) {
 
 export { ProductsService } from './products/products.service';
 export { SettingsService } from './settings/settings.service';
-

@@ -44,15 +44,15 @@ function AccountPageContent() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const tokenFromQuery = searchParams?.get('token');
+    const tokenFromQuery = typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.hash.replace(/^#/, '')).get('token')
+      : null;
     const googleError = searchParams?.get('googleError');
 
     if (tokenFromQuery) {
       setAccessToken(tokenFromQuery);
       window.dispatchEvent(new Event('ff:auth-changed'));
-      const params = new URLSearchParams(searchParams?.toString() ?? '');
-      params.delete('token');
-      router.replace(params.toString() ? `/account?${params.toString()}` : '/account');
+      window.history.replaceState(null, '', '/account');
     }
 
     if (googleError) {
@@ -101,40 +101,45 @@ function AccountPageContent() {
   }
 
   if (loading) {
-    return <div className="mx-auto max-w-site px-6 py-24 text-charcoal-soft md:px-10">Preparing your account…</div>;
+    return <main className="account-page"><div className="site-shell account-loading">Preparing your account…</div></main>;
   }
 
   if (!getAccessToken() || !profile) {
     return (
-      <div className="mx-auto max-w-lg px-6 py-28 text-center">
-        <p className="eyebrow">Your ritual</p>
-        <h1 className="mt-4 font-display text-6xl leading-none text-charcoal">Your account</h1>
-        <p className="mt-4 text-charcoal-soft">Log in to view your profile and order history.</p>
-        <div className="mt-8 flex justify-center gap-3">
-          <Button href="/login">Log in</Button>
-          <Button href="/register" variant="outline">Register</Button>
-        </div>
-      </div>
+      <main className="account-page account-guest-page">
+        <section className="site-shell account-guest-card">
+          <p className="eyebrow">Your ritual, in one place</p>
+          <h1 className="account-title">Your account</h1>
+          <p className="account-intro">Keep your details close, revisit your orders, and make your next First Faith ritual feel effortless.</p>
+          <div className="account-actions">
+            <Button href="/login">Log in</Button>
+            <Button href="/register" variant="outline">Register</Button>
+          </div>
+          {error && <p className="account-error" role="alert">{error}</p>}
+          <div className="account-guest-notes"><span>Order history</span><span>Saved delivery details</span><span>Thoughtful updates</span></div>
+        </section>
+      </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-site px-6 py-12 md:px-10 md:py-20">
-      <div className="flex flex-wrap items-start justify-between gap-6">
+    <main className="account-page">
+      <div className="site-shell account-shell">
+      <div className="account-heading">
         <div>
           <p className="eyebrow">My account</p>
-          <h1 className="mt-3 font-display text-6xl leading-none text-charcoal">Welcome{profile.fullName ? `, ${profile.fullName}` : ''}</h1>
-          <p className="mt-3 text-charcoal-soft">Manage your details and keep track of your First Faith orders.</p>
+          <h1 className="account-title">Welcome{profile.fullName ? `, ${profile.fullName}` : ''}</h1>
+          <p className="account-intro">Manage your details and keep track of your First Faith orders.</p>
         </div>
         <Button type="button" variant="outline" onClick={handleLogout}>Log out</Button>
       </div>
 
-      {error && <p className="mt-8 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+      {error && <p className="account-error">{error}</p>}
 
-      <div className="mt-12 grid gap-8 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-        <section className="border-t border-stone bg-white/35 p-6 md:p-8">
-          <p className="eyebrow">Account overview</p><h2 className="mt-3 font-display text-3xl text-charcoal">Personal information</h2>
-          <dl className="mt-6 space-y-4 text-sm">
+      <div className="account-grid">
+        <section className="account-panel">
+          <p className="eyebrow">Account overview</p><h2 style={{ marginTop: '.75rem' }}>Personal information</h2>
+          <dl className="account-details">
             <div>
               <dt className="text-charcoal-soft">Name</dt>
               <dd className="mt-1 text-charcoal">{profile.fullName || 'Not provided'}</dd>
@@ -146,31 +151,31 @@ function AccountPageContent() {
           </dl>
         </section>
 
-        <section>
-          <div className="flex items-baseline justify-between gap-4">
-            <h2 className="font-display text-2xl text-charcoal">Orders</h2>
-            <Link href="/shop" className="text-sm text-burgundy hover:text-burgundy-dark">Continue shopping</Link>
+        <section className="account-orders">
+          <div className="account-orders-heading">
+            <h2>Orders</h2>
+            <Link href="/shop">Continue shopping</Link>
           </div>
           {orders.length === 0 ? (
-            <div className="mt-6 border border-stone bg-white/60 p-6 text-sm text-charcoal-soft">
-              You have no orders yet.
+            <div className="account-empty">
+              <p>Nothing here yet.</p><span>When you place an order, its progress and details will appear here.</span><Button href="/shop" variant="outline">Explore the collection</Button>
             </div>
           ) : (
-            <div className="mt-6 space-y-3">
+            <div className="account-order-list">
               {orders.map((order) => (
                 <Link
                   key={order.id}
                   href={`/account/orders/${order.id}`}
-                  className="block border border-stone bg-white/55 p-5 transition-all hover:-translate-y-0.5 hover:border-burgundy"
+                  className="account-order-card"
                 >
-                  <div className="flex flex-wrap justify-between gap-3">
+                  <div className="account-order-card-inner">
                     <div>
-                      <p className="font-display text-xl text-charcoal">{order.orderNumber}</p>
-                      <p className="mt-1 text-sm text-charcoal-soft">{formatDate(order.createdAt)} · {order.items.length} item{order.items.length === 1 ? '' : 's'}</p>
+                      <p className="account-order-number">{order.orderNumber}</p>
+                      <p>{formatDate(order.createdAt)} · {order.items.length} item{order.items.length === 1 ? '' : 's'}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium text-charcoal">{formatAmount(order.grandTotal)}</p>
-                      <p className="mt-1 text-sm capitalize text-burgundy">{order.status.toLowerCase()}</p>
+                    <div className="account-order-total">
+                      <p>{formatAmount(order.grandTotal)}</p>
+                      <span>{order.status.toLowerCase()}</span>
                     </div>
                   </div>
                 </Link>
@@ -179,13 +184,14 @@ function AccountPageContent() {
           )}
         </section>
       </div>
+      </div>
     </main>
   );
 }
 
 export default function AccountPage() {
   return (
-    <Suspense fallback={<div className="mx-auto max-w-site px-6 py-24 text-charcoal-soft md:px-10">Preparing your account…</div>}>
+    <Suspense fallback={<main className="account-page"><div className="site-shell account-loading">Preparing your account…</div></main>}>
       <AccountPageContent />
     </Suspense>
   );

@@ -1,41 +1,39 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
-// Single shared Prisma client for the whole app, connected/disconnected
-// alongside the Nest application lifecycle.
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(PrismaService.name);
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy {
+  private readonly pool: Pool;
+
+  constructor() {
+    const connectionString = process.env.DATABASE_URL;
+
+    if (!connectionString) {
+      throw new Error('DATABASE_URL is not configured');
+    }
+
+    const pool = new Pool({
+      connectionString,
+      max: 10,
+    });
+
+    const adapter = new PrismaPg(pool);
+
+    super({ adapter });
+
+    this.pool = pool;
+  }
 
   async onModuleInit() {
-    const maxRetries = 3;
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        await this.$connect();
-        return;
-      } catch (error: unknown) {
-        const details = error && typeof error === 'object' ? error as {
-          code?: unknown;
-          name?: unknown;
-          message?: unknown;
-        } : {};
-        const code = details.code ? String(details.code) : 'unknown';
-        const name = details.name ? String(details.name) : 'Error';
-        const message = details.message ? String(details.message).split('\n')[0] : 'No diagnostic message';
-        const safeMessage = message.replace(/postgres(?:ql)?:\/\/[^\s]+/gi, '<redacted-database-url>');
-
-        if (attempt === maxRetries) {
-          this.logger.error(`Database connection failed (${name}, ${code}): ${safeMessage}`);
-          throw new Error('Database connection failed');
-        }
-
-        this.logger.warn(`Database connection attempt ${attempt}/${maxRetries} failed (${name}, ${code}). Retrying in 2s...`);
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-      }
-    }
+    await this.$connect();
   }
 
   async onModuleDestroy() {
     await this.$disconnect();
+    await this.pool.end();
   }
 }

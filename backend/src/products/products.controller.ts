@@ -20,6 +20,14 @@ import { UpdateProductDto } from './dto/update-product.dto';
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
+  // Admin route must precede :slug or Express treats "admin" as a slug.
+  @Get('admin/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  findAllForAdmin() {
+    return this.productsService.findAllForAdmin();
+  }
+
   // Public — powers /shop
   @Get()
   findAll() {
@@ -30,14 +38,6 @@ export class ProductsController {
   @Get(':slug')
   findOne(@Param('slug') slug: string) {
     return this.productsService.findBySlug(slug);
-  }
-
-  // Admin-only from here down
-  @Get('admin/all')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
-  findAllForAdmin() {
-    return this.productsService.findAllForAdmin();
   }
 
   @Post()

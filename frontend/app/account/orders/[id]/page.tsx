@@ -15,8 +15,14 @@ type Order = {
   paymentMethod: string;
   createdAt: string;
   items: Array<{ id: string; productName: string; variantLabel: string; quantity: number; unitPrice: string; lineTotal: string }>;
-  shippingAddress?: { line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string; phone?: string } | null;
+  shippingAddress?: { name?: string; line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string; phone?: string } | null;
+  address?: { line1: string; line2?: string | null; city: string; state: string; postalCode: string; country: string; phone?: string | null } | null;
+  user?: { fullName?: string | null; email?: string; phone?: string | null };
 };
+
+function hasAddress(value: Order['shippingAddress']): value is NonNullable<Order['shippingAddress']> & { line1: string; city: string; state: string; postalCode: string } {
+  return Boolean(value?.line1 && value.city && value.state && value.postalCode);
+}
 
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
@@ -37,8 +43,11 @@ export default function OrderDetailPage() {
       .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Unable to load order'));
   }, [params?.id, router]);
 
-  if (error) return <main className="site-shell px-6 py-24 md:px-10"><p className="text-burgundy">{error}</p></main>;
-  if (!order) return <main className="site-shell px-6 py-24 md:px-10"><p className="text-charcoal-soft">Loading order...</p></main>;
+  if (error) return <main className="site-shell" style={{ padding: '6rem 0' }}><p style={{ color: 'var(--ff-burgundy)' }}>{error}</p></main>;
+  if (!order) return <main className="site-shell" style={{ padding: '6rem 0' }}><p style={{ color: 'var(--ff-charcoal-soft)' }}>Loading order...</p></main>;
 
-  return <main className="site-shell px-6 py-16 md:px-10 md:py-24"><div className="max-w-3xl"><p className="eyebrow">Order confirmed</p><h1 className="mt-3 font-display text-5xl text-charcoal">Thank you for your order.</h1><p className="mt-4 text-charcoal-soft">{order.orderNumber} · {new Date(order.createdAt).toLocaleDateString('en-IN')}</p><div className="mt-12 grid gap-8 md:grid-cols-2"><section className="border border-stone bg-white/60 p-6"><h2 className="font-display text-2xl">Items</h2><div className="mt-5 space-y-4">{order.items.map((item) => <div key={item.id} className="flex justify-between gap-4 text-sm"><span>{item.productName} · {item.variantLabel} × {item.quantity}</span><span>₹{Number(item.lineTotal).toLocaleString('en-IN')}</span></div>)}</div><div className="mt-6 flex justify-between border-t border-stone pt-5 font-medium"><span>Total</span><span>₹{Number(order.grandTotal).toLocaleString('en-IN')}</span></div></section><section className="border border-stone bg-white/60 p-6"><h2 className="font-display text-2xl">Delivery</h2><p className="mt-5 text-sm leading-7">{order.shippingAddress?.line1}<br />{order.shippingAddress?.line2 && <>{order.shippingAddress.line2}<br /></>}{order.shippingAddress?.city}, {order.shippingAddress?.state} {order.shippingAddress?.postalCode}<br />{order.shippingAddress?.country}</p><p className="mt-6 text-sm text-burgundy">{order.paymentMethod === 'COD' ? 'Cash on delivery' : order.paymentMethod} · {order.status}</p></section></div></div></main>;
+  const delivery = hasAddress(order.shippingAddress) ? order.shippingAddress : order.address;
+  const recipient = order.shippingAddress?.name || order.user?.fullName || order.user?.email;
+
+  return <main className="site-shell" style={{ padding: '4rem 0 6rem' }}><div style={{ maxWidth: '900px' }}><p className="eyebrow">Order confirmed</p><h1 className="display-title" style={{ fontSize: 'clamp(2.6rem, 5vw, 4.5rem)' }}>Thank you for your order.</h1><p style={{ marginTop: '1rem', color: 'var(--ff-charcoal-soft)' }}>{order.orderNumber} · {new Date(order.createdAt).toLocaleDateString('en-IN')}</p><div className="order-detail-grid"><section className="order-detail-panel"><h2>Items</h2><div className="order-detail-items">{order.items.map((item) => <div key={item.id}><span>{item.productName} · {item.variantLabel} × {item.quantity}</span><span>₹{Number(item.lineTotal).toLocaleString('en-IN')}</span></div>)}</div><div className="order-detail-total"><span>Total</span><strong>₹{Number(order.grandTotal).toLocaleString('en-IN')}</strong></div></section><section className="order-detail-panel"><h2>Delivery</h2>{delivery ? <address className="delivery-address">{recipient && <strong>{recipient}</strong>}<span>{delivery.line1}</span>{delivery.line2 && <span>{delivery.line2}</span>}<span>{delivery.city}, {delivery.state}</span><span>{delivery.postalCode}</span>{delivery.phone && <span>Phone: {delivery.phone}</span>}</address> : <p className="delivery-unavailable">Delivery details are unavailable for this legacy order. Please contact support with your order number.</p>}<p className="order-payment">{order.paymentMethod === 'COD' ? 'Cash on delivery' : order.paymentMethod} · {order.status}</p></section></div></div></main>;
 }

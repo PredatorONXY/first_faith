@@ -13,32 +13,54 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
 
-class CredentialsDto {
+const normalizeText = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value;
+const normalizeEmail = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim().toLowerCase() : value;
+const normalizeIndianPhone = ({ value }: { value: unknown }) => {
+  if (typeof value !== 'string') return value;
+  const compact = value.trim().replace(/[\s-]/g, '');
+  return compact.startsWith('+91') ? compact.slice(3) : compact.startsWith('91') && compact.length === 12 ? compact.slice(2) : compact;
+};
+
+class LoginDto {
+  @Transform(normalizeEmail)
   @IsEmail()
+  @MaxLength(254)
   email!: string;
 
   @IsString()
+  @MaxLength(72)
+  password!: string;
+}
+
+class RegisterDto extends LoginDto {
+  @IsString()
   @MinLength(8)
+  @MaxLength(72)
+  @Matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, { message: 'Password must include at least one letter and one number' })
   password!: string;
 
   @IsOptional()
+  @Transform(normalizeText)
   @IsString()
+  @MinLength(2)
+  @MaxLength(100)
   fullName?: string;
 }
 
 class AddressDto {
-  @IsOptional() @IsString() label?: string;
-  @IsString() @IsNotEmpty() @MinLength(2) line1!: string;
-  @IsOptional() @IsString() line2?: string;
-  @IsString() @IsNotEmpty() @MinLength(2) city!: string;
-  @IsString() @IsNotEmpty() @MinLength(2) state!: string;
-  @IsString() @IsNotEmpty() @MinLength(3) postalCode!: string;
-  @IsString() @IsNotEmpty() @MinLength(2) country!: string;
-  @IsOptional() @IsString() phone?: string;
+  @IsOptional() @Transform(normalizeText) @IsString() @MaxLength(50) label?: string;
+  @Transform(normalizeText) @IsString() @IsNotEmpty() @MinLength(3) @MaxLength(160) line1!: string;
+  @IsOptional() @Transform(normalizeText) @IsString() @MaxLength(160) line2?: string;
+  @Transform(normalizeText) @IsString() @IsNotEmpty() @MinLength(2) @MaxLength(80) city!: string;
+  @Transform(normalizeText) @IsString() @IsNotEmpty() @MinLength(2) @MaxLength(80) state!: string;
+  @Transform(normalizeText) @Matches(/^\d{6}$/, { message: 'PIN code must be a 6-digit Indian PIN' }) postalCode!: string;
+  @Transform(({ value }) => typeof value === 'string' ? value.trim().toUpperCase() : value) @Matches(/^IN$/, { message: 'Country must be IN' }) country!: string;
+  @IsOptional() @Transform(normalizeIndianPhone) @Matches(/^[6-9]\d{9}$/, { message: 'Enter a valid 10-digit Indian mobile number' }) phone?: string;
 }
 
 @Controller('auth')
@@ -49,12 +71,12 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  register(@Body() dto: CredentialsDto) {
+  register(@Body() dto: RegisterDto) {
     return this.authService.register(dto.email, dto.password, dto.fullName);
   }
 
   @Post('login')
-  login(@Body() dto: CredentialsDto) {
+  login(@Body() dto: LoginDto) {
     return this.authService.login(dto.email, dto.password);
   }
 
@@ -71,10 +93,10 @@ export class AuthController {
       const result = await this.authService.handleGoogleCallback(code, error);
       if (frontendBaseUrl) {
         const frontendUrl = new URL('/account', frontendBaseUrl);
-        frontendUrl.searchParams.set('token', result.accessToken);
+        frontendUrl.hash = `token=${encodeURIComponent(result.accessToken)}`;
         return res.redirect(frontendUrl.toString());
       }
-      return res.redirect(`/account?token=${encodeURIComponent(result.accessToken)}`);
+      return res.redirect(`/account#token=${encodeURIComponent(result.accessToken)}`);
     } catch (errorResponse) {
       const message = errorResponse instanceof Error ? errorResponse.message : 'Google authentication failed';
       if (frontendBaseUrl) {

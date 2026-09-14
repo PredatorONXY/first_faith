@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import brandMark from '../../img/IMG-20260831-WA0007.jpg';
+import brandMark from '../../img/logo_main.png';
 import { usePathname } from 'next/navigation';
 import { getAccessToken } from '../../lib/api';
 import { useCart } from '../../hooks/useCart';
@@ -30,12 +30,9 @@ export function Header() {
       refresh();
     };
     syncAuth();
-    const handleCartChange = () => refresh();
     window.addEventListener('ff:auth-changed', syncAuth);
-    window.addEventListener('ff:cart-changed', handleCartChange);
     return () => {
       window.removeEventListener('ff:auth-changed', syncAuth);
-      window.removeEventListener('ff:cart-changed', handleCartChange);
     };
   }, [refresh]);
 

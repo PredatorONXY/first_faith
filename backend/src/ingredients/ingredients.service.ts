@@ -9,7 +9,17 @@ export class IngredientsService {
   findAll() {
     return this.prisma.ingredient.findMany({
       orderBy: { name: 'asc' },
-      include: { products: { include: { product: true } } },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        products: {
+          select: {
+            role: true,
+            product: { select: { id: true, name: true, slug: true } },
+          },
+        },
+      },
     });
   }
 

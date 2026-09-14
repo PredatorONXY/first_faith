@@ -28,8 +28,9 @@ export function ProductCard({ product }: { product: Product }) {
               src={image.src}
               alt={image.alt}
               fill
+              quality={80}
               className="product-card-image"
-              sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+              sizes="(min-width: 1200px) 280px, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
             />
           ) : (
             <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--ff-charcoal-soft)' }}>

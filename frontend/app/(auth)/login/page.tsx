@@ -18,13 +18,18 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      setError('Enter a valid email address.');
+      return;
+    }
     setLoading(true);
     setError(null);
 
     try {
       const result = await apiFetch<{ accessToken: string }>('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: normalizedEmail, password }),
       });
       setAccessToken(result.accessToken);
       window.dispatchEvent(new Event('ff:auth-changed'));

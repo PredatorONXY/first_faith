@@ -17,7 +17,10 @@ export class OrdersService {
     });
     if (!cart || cart.items.length === 0) throw new BadRequestException('Cart is empty');
 
-    const address = await this.prisma.address.findFirst({ where: { id: addressId, userId } });
+    const [address, user] = await Promise.all([
+      this.prisma.address.findFirst({ where: { id: addressId, userId } }),
+      this.prisma.user.findUnique({ where: { id: userId }, select: { fullName: true, email: true, phone: true } }),
+    ]);
     if (!address) throw new NotFoundException('Address not found for this account');
 
     for (const item of cart.items) {
@@ -71,6 +74,7 @@ export class OrdersService {
           grandTotal,
           paymentMethod,
           shippingAddress: {
+            name: user?.fullName || user?.email,
             label: address.label,
             line1: address.line1,
             line2: address.line2,
@@ -78,7 +82,7 @@ export class OrdersService {
             state: address.state,
             postalCode: address.postalCode,
             country: address.country,
-            phone: address.phone,
+            phone: address.phone || user?.phone,
           },
           couponId,
           items: {
@@ -123,7 +127,7 @@ export class OrdersService {
   async findOne(orderId: string, userId: string) {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, userId },
-      include: { items: true, payment: true, address: true },
+      include: { items: true, payment: true, address: true, user: { select: { fullName: true, email: true, phone: true } } },
     });
     if (!order) throw new NotFoundException('Order not found');
     return order;

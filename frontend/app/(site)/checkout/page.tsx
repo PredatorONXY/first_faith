@@ -36,7 +36,7 @@ const emptyAddress: AddressForm = {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, loading: cartLoading, error: cartError, updateQuantity, removeItem, subtotal } = useCart();
+  const { cart, loading: cartLoading, error: cartError, updateQuantity, removeItem, subtotal, clear: clearCart } = useCart();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddress, setSelectedAddress] = useState('');
   const [form, setForm] = useState<AddressForm>(emptyAddress);
@@ -71,10 +71,23 @@ export default function CheckoutPage() {
       setError(`Enter your ${missingField === 'postalCode' ? 'PIN / postal code' : missingField}.`);
       return;
     }
+    if (form.line1.trim().length < 3 || form.city.trim().length < 2 || form.state.trim().length < 2) {
+      setError('Please enter a complete delivery address.');
+      return;
+    }
+    if (!/^\d{6}$/.test(form.postalCode.trim())) {
+      setError('Enter a valid 6-digit Indian PIN code.');
+      return;
+    }
+    const normalizedPhone = (form.phone ?? '').trim().replace(/[\s-]/g, '').replace(/^\+91/, '').replace(/^91(?=\d{10}$)/, '');
+    if (!/^[6-9]\d{9}$/.test(normalizedPhone)) {
+      setError('Enter a valid 10-digit Indian mobile number.');
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
-      const address = await apiFetch<Address>('/auth/addresses', { method: 'POST', body: JSON.stringify(form) });
+      const address = await apiFetch<Address>('/auth/addresses', { method: 'POST', body: JSON.stringify({ ...form, phone: normalizedPhone, postalCode: form.postalCode.trim(), country: 'IN' }) });
       setAddresses((current) => [...current, address]);
       setSelectedAddress(address.id);
       setShowForm(false);
@@ -112,7 +125,9 @@ export default function CheckoutPage() {
         method: 'POST',
         body: JSON.stringify({ addressId: selectedAddress, paymentMethod: 'COD' }),
       });
-      window.dispatchEvent(new Event('ff:cart-changed'));
+      // The successful order transaction has emptied the cart. Update every
+      // mounted cart view locally instead of issuing duplicate cart requests.
+      clearCart();
       router.push(`/account/orders/${order.id}`);
     } catch (orderError) {
       setError(orderError instanceof Error ? orderError.message : 'Unable to place order');
@@ -220,6 +235,8 @@ export default function CheckoutPage() {
                       value={form[field] ?? ''}
                       onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))}
                       className="form-input"
+                      maxLength={field === 'line1' || field === 'line2' ? 160 : field === 'city' || field === 'state' ? 80 : field === 'postalCode' ? 6 : field === 'phone' ? 13 : 50}
+                      inputMode={field === 'postalCode' || field === 'phone' ? 'numeric' : undefined}
                     />
                   </div>
                 ))}

@@ -1,7 +1,13 @@
 import { Controller, Post, Body, Req, Headers, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
+import { IsUUID } from 'class-validator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RazorpayService } from './razorpay/razorpay.service';
+
+class CreatePaymentDto {
+  @IsUUID()
+  orderId!: string;
+}
 
 @Controller('payments')
 export class PaymentsController {
@@ -9,8 +15,8 @@ export class PaymentsController {
 
   @Post('create')
   @UseGuards(JwtAuthGuard)
-  createPayment(@Body('orderId') orderId: string, @Req() req: Request & { user: { id: string } }) {
-    return this.razorpayService.createPaymentOrder(orderId, req.user.id);
+  createPayment(@Body() dto: CreatePaymentDto, @Req() req: Request & { user: { id: string } }) {
+    return this.razorpayService.createPaymentOrder(dto.orderId, req.user.id);
   }
 
   // NOTE: this route must be configured in main.ts / a middleware to receive
