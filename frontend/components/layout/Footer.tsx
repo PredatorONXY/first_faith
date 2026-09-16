@@ -10,7 +10,11 @@ type FooterSettings = {
   facebook_url?: string;
 };
 
+const DEFAULT_INSTAGRAM_URL = 'https://www.instagram.com/_firstfaithofficial?stkn=MTQ5ZTFlYXczdzE0ZA==';
+
 export function Footer({ settings = {} }: { settings?: FooterSettings }) {
+  const instagramUrl = settings.instagram_url || DEFAULT_INSTAGRAM_URL;
+
   return (
     <footer className="site-footer">
       <div className="site-shell">
@@ -47,8 +51,12 @@ export function Footer({ settings = {} }: { settings?: FooterSettings }) {
                 <li><a href={`mailto:${settings.contact_email}`}>{settings.contact_email}</a></li>
               )}
               {settings.contact_phone && <li><span>{settings.contact_phone}</span></li>}
-              {settings.instagram_url && (
-                <li><a href={settings.instagram_url} target="_blank" rel="noopener noreferrer">Instagram</a></li>
+              {instagramUrl && (
+                <li>
+                  <a href={instagramUrl} target="_blank" rel="noopener noreferrer">
+                    Instagram
+                  </a>
+                </li>
               )}
               {settings.facebook_url && (
                 <li><a href={settings.facebook_url} target="_blank" rel="noopener noreferrer">Facebook</a></li>

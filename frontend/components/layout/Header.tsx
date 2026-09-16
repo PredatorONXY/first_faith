@@ -27,7 +27,7 @@ export function Header() {
   useEffect(() => {
     const syncAuth = () => {
       setSignedIn(Boolean(getAccessToken()));
-      refresh();
+      refresh().catch(() => {});
     };
     syncAuth();
     window.addEventListener('ff:auth-changed', syncAuth);

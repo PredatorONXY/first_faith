@@ -12,6 +12,8 @@ node_modules/
 frontend/.next/
 frontend/out/
 frontend/next-env.d.ts
+frontend/tsconfig.tsbuildinfo
+frontend/buildlog.txt
 
 # NestJS
 backend/dist/
@@ -28,6 +30,7 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+.directory
 
 # Editor
 .vscode/

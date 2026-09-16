@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, Role } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 
 @Injectable()
@@ -7,19 +7,36 @@ export class AdminService {
   constructor(private readonly prisma: PrismaService) {}
 
   async dashboard() {
-    const [users, orders, pendingOrders, completedOrders, products, lowStock] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.order.count(),
-      this.prisma.order.count({ where: { status: { in: [OrderStatus.PENDING, OrderStatus.PAID, OrderStatus.PROCESSING] } } }),
-      this.prisma.order.count({ where: { status: OrderStatus.DELIVERED } }),
-      this.prisma.product.count(),
-      this.prisma.inventory.findMany({ where: { stockQuantity: { lte: 5 } }, include: { variant: { include: { product: true } } } }),
-    ]);
-    return { users, orders, pendingOrders, completedOrders, products, lowStock };
+    const users = await this.prisma.user.count({
+      where: { role: Role.CUSTOMER, emailVerified: true },
+    });
+    const orders = await this.prisma.order.count();
+    const pendingOrders = await this.prisma.order.count({
+      where: { status: { in: [OrderStatus.PENDING, OrderStatus.PAID, OrderStatus.PROCESSING] } },
+    });
+    const completedOrders = await this.prisma.order.count({
+      where: { status: OrderStatus.DELIVERED },
+    });
+    const products = await this.prisma.product.count();
+    const lowStock = await this.prisma.inventory.findMany({
+      where: { stockQuantity: { lte: 5 } },
+      include: { variant: { include: { product: true } } },
+    });
+    const recentOrders = await this.prisma.order.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: { user: { select: { id: true, fullName: true, email: true } } },
+    });
+
+    return { users, orders, pendingOrders, completedOrders, products, lowStock, recentOrders };
   }
 
   users() {
     return this.prisma.user.findMany({
+      where: {
+        role: Role.CUSTOMER,
+        emailVerified: true,
+      },
       orderBy: { createdAt: 'desc' },
       select: { id: true, fullName: true, email: true, phone: true, role: true, createdAt: true },
     });

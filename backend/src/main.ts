@@ -1,3 +1,15 @@
+import * as net from 'net';
+
+// Node 20+ defaults autoSelectFamilyAttemptTimeout to 250ms, which causes WAN / cloud
+// database connections (such as AWS us-east-2 from distant clients) to abort TCP
+// handshakes with ETIMEDOUT after 250ms. Configure resilient socket connection timeouts.
+if (typeof (net as any).setDefaultAutoSelectFamilyAttemptTimeout === 'function') {
+  (net as any).setDefaultAutoSelectFamilyAttemptTimeout(10000);
+}
+if (typeof (net as any).setDefaultAutoSelectFamily === 'function') {
+  (net as any).setDefaultAutoSelectFamily(false);
+}
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import express, { Request, Response, NextFunction } from 'express';
@@ -117,6 +129,7 @@ async function bootstrap() {
     }
   }
 
+  app.enableShutdownHooks();
   await app.init();
 
   const port = Number(process.env.PORT) || 4000;

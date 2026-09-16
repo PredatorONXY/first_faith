@@ -5,6 +5,7 @@ import {
   Get,
   Delete,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -37,7 +38,12 @@ class LoginDto {
   password!: string;
 }
 
-class RegisterDto extends LoginDto {
+class RegisterDto {
+  @Transform(normalizeEmail)
+  @IsEmail()
+  @MaxLength(254)
+  email!: string;
+
   @IsString()
   @MinLength(8)
   @MaxLength(72)
@@ -61,6 +67,46 @@ class AddressDto {
   @Transform(normalizeText) @Matches(/^\d{6}$/, { message: 'PIN code must be a 6-digit Indian PIN' }) postalCode!: string;
   @Transform(({ value }) => typeof value === 'string' ? value.trim().toUpperCase() : value) @Matches(/^IN$/, { message: 'Country must be IN' }) country!: string;
   @IsOptional() @Transform(normalizeIndianPhone) @Matches(/^[6-9]\d{9}$/, { message: 'Enter a valid 10-digit Indian mobile number' }) phone?: string;
+  @IsOptional() isDefault?: boolean;
+}
+
+class UpdateAddressDto {
+  @IsOptional() @Transform(normalizeText) @IsString() @MaxLength(50) label?: string;
+  @IsOptional() @Transform(normalizeText) @IsString() @MinLength(3) @MaxLength(160) line1?: string;
+  @IsOptional() @Transform(normalizeText) @IsString() @MaxLength(160) line2?: string;
+  @IsOptional() @Transform(normalizeText) @IsString() @MinLength(2) @MaxLength(80) city?: string;
+  @IsOptional() @Transform(normalizeText) @IsString() @MinLength(2) @MaxLength(80) state?: string;
+  @IsOptional() @Transform(normalizeText) @Matches(/^\d{6}$/, { message: 'PIN code must be a 6-digit Indian PIN' }) postalCode?: string;
+  @IsOptional() @Transform(({ value }) => typeof value === 'string' ? value.trim().toUpperCase() : value) @Matches(/^IN$/, { message: 'Country must be IN' }) country?: string;
+  @IsOptional() @Transform(normalizeIndianPhone) @Matches(/^[6-9]\d{9}$/, { message: 'Enter a valid 10-digit Indian mobile number' }) phone?: string;
+  @IsOptional() isDefault?: boolean;
+}
+
+class VerifyEmailDto {
+  @IsString()
+  @IsNotEmpty()
+  token!: string;
+}
+
+class ResendVerificationDto {
+  @Transform(normalizeEmail)
+  @IsEmail()
+  @MaxLength(254)
+  email!: string;
+}
+
+class UpdateProfileDto {
+  @IsOptional()
+  @Transform(normalizeText)
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  fullName?: string;
+
+  @IsOptional()
+  @Transform(normalizeIndianPhone)
+  @Matches(/^[6-9]\d{9}$/, { message: 'Enter a valid 10-digit Indian mobile number' })
+  phone?: string;
 }
 
 @Controller('auth')
@@ -71,8 +117,21 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  register(@Body() dto: RegisterDto) {
+  register(@Body() dto: RegisterDto, @Req() req: Request) {
+    if ((req.body as any)?.role !== undefined) {
+      throw new BadRequestException('Role cannot be specified during registration');
+    }
     return this.authService.register(dto.email, dto.password, dto.fullName);
+  }
+
+  @Post('verify-email')
+  verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.authService.verifyEmail(dto.token);
+  }
+
+  @Post('resend-verification')
+  resendVerification(@Body() dto: ResendVerificationDto) {
+    return this.authService.resendVerification(dto.email);
   }
 
   @Post('login')
@@ -80,17 +139,27 @@ export class AuthController {
     return this.authService.login(dto.email, dto.password);
   }
 
+  @Post('admin/login')
+  adminLogin(@Body() dto: LoginDto) {
+    return this.authService.adminLogin(dto.email, dto.password);
+  }
+
   @Get('google')
-  google(@Res() res: Response) {
-    return res.redirect(this.authService.getGoogleAuthUrl());
+  google(@Req() req: Request, @Res() res: Response) {
+    return res.redirect(this.authService.getGoogleAuthUrl(req));
   }
 
   @Get('google/callback')
-  async googleCallback(@Query('code') code: string | undefined, @Query('error') error: string | undefined, @Res() res: Response) {
+  async googleCallback(
+    @Req() req: Request,
+    @Query('code') code: string | undefined,
+    @Query('error') error: string | undefined,
+    @Res() res: Response,
+  ) {
     const frontendBaseUrl = this.config.get<string>('FRONTEND_URL');
 
     try {
-      const result = await this.authService.handleGoogleCallback(code, error);
+      const result = await this.authService.handleGoogleCallback(req, code, error);
       if (frontendBaseUrl) {
         const frontendUrl = new URL('/account', frontendBaseUrl);
         frontendUrl.hash = `token=${encodeURIComponent(result.accessToken)}`;
@@ -114,6 +183,12 @@ export class AuthController {
     return this.authService.getProfile(req.user.id);
   }
 
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  updateProfile(@Req() req: Request & { user: { id: string } }, @Body() dto: UpdateProfileDto) {
+    return this.authService.updateProfile(req.user.id, dto);
+  }
+
   @Get('addresses')
   @UseGuards(JwtAuthGuard)
   addresses(@Req() req: Request & { user: { id: string } }) {
@@ -124,6 +199,22 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   createAddress(@Req() req: Request & { user: { id: string } }, @Body() dto: AddressDto) {
     return this.authService.createAddress(req.user.id, dto);
+  }
+
+  @Patch('addresses/:id')
+  @UseGuards(JwtAuthGuard)
+  updateAddress(
+    @Req() req: Request & { user: { id: string } },
+    @Param('id') id: string,
+    @Body() dto: UpdateAddressDto,
+  ) {
+    return this.authService.updateAddress(req.user.id, id, dto);
+  }
+
+  @Patch('addresses/:id/default')
+  @UseGuards(JwtAuthGuard)
+  setDefaultAddress(@Req() req: Request & { user: { id: string } }, @Param('id') id: string) {
+    return this.authService.setDefaultAddress(req.user.id, id);
   }
 
   @Delete('addresses/:id')

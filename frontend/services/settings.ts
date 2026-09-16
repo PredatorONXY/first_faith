@@ -12,8 +12,22 @@ export interface SiteSettings {
   return_policy?: string;
 }
 
-async function loadSiteSettings() {
-  return apiFetch<SiteSettings>('/settings');
+export const DEFAULT_SITE_SETTINGS: SiteSettings = {
+  store_name: 'First Faith',
+  instagram_url: 'https://www.instagram.com/_firstfaithofficial?stkn=MTQ5ZTFlYXczdzE0ZA==',
+};
+
+async function loadSiteSettings(): Promise<SiteSettings> {
+  try {
+    const data = await apiFetch<SiteSettings>('/settings');
+    return {
+      ...DEFAULT_SITE_SETTINGS,
+      ...data,
+      instagram_url: data?.instagram_url || DEFAULT_SITE_SETTINGS.instagram_url,
+    };
+  } catch {
+    return DEFAULT_SITE_SETTINGS;
+  }
 }
 
 const getCachedSiteSettings = unstable_cache(loadSiteSettings, ['site-settings'], {

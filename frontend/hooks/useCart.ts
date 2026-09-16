@@ -59,6 +59,12 @@ export function useCart({ autoLoad = true }: { autoLoad?: boolean } = {}) {
         setCart(data);
       }
       setError('');
+    } catch (err) {
+      if (requestRevision === cartRevision) {
+        publishCart(null);
+        setCart(null);
+      }
+      setError(err instanceof Error ? err.message : 'Unable to load cart');
     } finally {
       setLoading(false);
     }

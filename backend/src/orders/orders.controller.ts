@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 import { OrderStatus, PaymentProvider, Role } from '@prisma/client';
@@ -54,12 +54,12 @@ export class OrdersController {
   @Patch(':id/status')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
+  updateStatus(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateOrderStatusDto) {
     return this.ordersService.updateStatus(id, dto.status);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @Req() req: AuthedRequest) {
+  findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: AuthedRequest) {
     return this.ordersService.findOne(id, req.user.id);
   }
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { ReviewStatus, Role } from '@prisma/client';
@@ -56,7 +56,14 @@ export class ReviewsController {
   @Patch(':id/status')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
-  moderate(@Param('id') id: string, @Body() dto: ModerateReviewDto) {
+  moderate(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: ModerateReviewDto) {
     return this.reviewsService.setStatus(id, dto.status);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.reviewsService.delete(id);
   }
 }

@@ -1,21 +1,8 @@
 import type { Metadata } from 'next';
-import { Fraunces, Inter } from 'next/font/google';
 import './globals.css';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { getSiteSettings } from '../services/settings';
-
-const displayFont = Fraunces({
-  subsets: ['latin'],
-  variable: '--ff-font-display',
-  weight: ['400', '500', '600'],
-});
-
-const bodyFont = Inter({
-  subsets: ['latin'],
-  variable: '--ff-font-body',
-  weight: ['400', '500', '600'],
-});
 
 export const metadata: Metadata = {
   title: {
@@ -35,7 +22,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const settings = await getSiteSettings().catch(() => ({}));
 
   return (
-    <html lang="en" className={`${displayFont.variable} ${bodyFont.variable}`}>
+    <html lang="en">
       <body>
         <Header />
         <main>{children}</main>

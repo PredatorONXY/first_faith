@@ -1935,6 +1935,212 @@ select {
 .mt-10 { margin-top: 2.5rem; }
 .mt-12 { margin-top: 3rem; }
 
+/* ==========================================================================
+   FIRST FAITH — ADMIN CONTROL SYSTEM & TABLES
+   ========================================================================== */
+
+/* Background utilities */
+.bg-burgundy { background-color: var(--ff-burgundy) !important; }
+.bg-burgundy-dark { background-color: var(--ff-burgundy-dark) !important; }
+.hover\:bg-burgundy-dark:hover { background-color: var(--ff-burgundy-dark) !important; }
+
+/* Admin Base Button */
+.admin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 1rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  text-decoration: none !important;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+/* PRIMARY ACTION: burgundy background, white text, visible hover */
+.admin-btn-primary {
+  background: var(--ff-burgundy) !important;
+  color: #ffffff !important;
+  border: 1px solid var(--ff-burgundy) !important;
+  box-shadow: 0 2px 6px rgba(124, 40, 54, 0.2);
+}
+.admin-btn-primary:hover,
+.admin-btn-primary:focus-visible {
+  background: var(--ff-burgundy-dark) !important;
+  border-color: var(--ff-burgundy-dark) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 40, 54, 0.3);
+}
+
+/* SECONDARY ACTION: transparent/cream background, dark/burgundy text, thin border */
+.admin-btn-secondary {
+  background: rgba(255, 255, 255, 0.85) !important;
+  color: var(--ff-burgundy) !important;
+  border: 1px solid var(--ff-burgundy) !important;
+}
+.admin-btn-secondary:hover,
+.admin-btn-secondary:focus-visible {
+  background: var(--ff-burgundy) !important;
+  color: #ffffff !important;
+  border-color: var(--ff-burgundy) !important;
+  transform: translateY(-1px);
+}
+
+/* DANGER ACTION: Delete */
+.admin-btn-danger {
+  background: #fdf2f2 !important;
+  color: #991b1b !important;
+  border: 1px solid #f87171 !important;
+}
+.admin-btn-danger:hover,
+.admin-btn-danger:focus-visible {
+  background: #991b1b !important;
+  color: #ffffff !important;
+  border-color: #991b1b !important;
+}
+
+/* SUCCESS / APPROVE ACTION */
+.admin-btn-success {
+  background: #ecfdf5 !important;
+  color: #065f46 !important;
+  border: 1px solid #34d399 !important;
+}
+.admin-btn-success:hover,
+.admin-btn-success:focus-visible {
+  background: #065f46 !important;
+  color: #ffffff !important;
+  border-color: #065f46 !important;
+}
+
+/* TEXT ACTION: dark/burgundy text, underline or subtle hover, NEVER white on cream */
+.admin-btn-text {
+  background: transparent !important;
+  border: none !important;
+  color: var(--ff-burgundy) !important;
+  font-weight: 600;
+  text-decoration: underline !important;
+  padding: 0.25rem 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.admin-btn-text:hover,
+.admin-btn-text:focus-visible {
+  color: var(--ff-burgundy-dark) !important;
+}
+
+/* ADMIN TABLE CONTAINER */
+.admin-table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--ff-stone);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(32, 28, 27, 0.04);
+  margin-top: 1.5rem;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+  min-width: 820px;
+}
+
+.admin-table th {
+  padding: 0.85rem 1.25rem;
+  background: rgba(238, 216, 207, 0.4);
+  color: var(--ff-charcoal);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--ff-stone);
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(32, 28, 27, 0.08);
+  color: var(--ff-charcoal);
+  vertical-align: middle;
+}
+
+.admin-table tr:hover td {
+  background: rgba(238, 216, 207, 0.15);
+}
+
+.admin-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Specific column helpers to prevent clipping */
+.admin-td-order-no {
+  min-width: 140px;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.admin-td-customer {
+  min-width: 180px;
+}
+
+.admin-td-date {
+  min-width: 110px;
+  white-space: nowrap;
+  color: var(--ff-charcoal-soft);
+}
+
+.admin-td-total {
+  min-width: 110px;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.admin-td-status {
+  min-width: 110px;
+  white-space: nowrap;
+}
+
+.admin-td-action {
+  min-width: 100px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ADMIN CARD & METRIC */
+.admin-card {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(32, 28, 27, 0.1);
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 6px 20px rgba(32, 28, 27, 0.04);
+}
+
+.admin-metric-card {
+  display: block;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--ff-stone);
+  border-radius: 10px;
+  padding: 1.25rem;
+  transition: all 0.2s ease;
+  text-decoration: none !important;
+}
+.admin-metric-card:hover {
+  border-color: var(--ff-burgundy);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(124, 40, 54, 0.08);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

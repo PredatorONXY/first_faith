@@ -13,19 +13,23 @@ model User {
   email        String        @unique
   fullName     String?
   phone        String?
-  role         Role          @default(CUSTOMER)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  passwordHash String?
-  googleId     String?       @unique
-  addresses    Address[]
-  cart         Cart?
-  couponUsages CouponUsage[]
-  orders       Order[]
-  reviews      Review[]
-  wishlist     Wishlist[]
+  role                       Role          @default(CUSTOMER)
+  emailVerified              Boolean       @default(false)
+  emailVerificationTokenHash String?
+  emailVerificationExpiresAt DateTime?
+  createdAt                  DateTime      @default(now())
+  updatedAt                  DateTime      @updatedAt
+  passwordHash               String?
+  googleId                   String?       @unique
+  addresses                  Address[]
+  cart                       Cart?
+  couponUsages               CouponUsage[]
+  orders                     Order[]
+  reviews                    Review[]
+  wishlist                   Wishlist[]
 
   @@index([email])
+  @@index([emailVerificationTokenHash])
 }
 
 model Address {

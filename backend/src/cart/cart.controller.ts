@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { IsInt, IsUUID, Min } from 'class-validator';
 import { CartService } from './cart.service';
@@ -38,12 +38,12 @@ export class CartController {
   }
 
   @Patch('items/:id')
-  updateItem(@Req() req: Request & { user: { id: string } }, @Param('id') id: string, @Body() dto: UpdateCartItemDto) {
+  updateItem(@Req() req: Request & { user: { id: string } }, @Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateCartItemDto) {
     return this.cartService.updateItemQuantity(req.user.id, id, dto.quantity);
   }
 
   @Delete('items/:id')
-  removeItem(@Req() req: Request & { user: { id: string } }, @Param('id') id: string) {
+  removeItem(@Req() req: Request & { user: { id: string } }, @Param('id', new ParseUUIDPipe()) id: string) {
     return this.cartService.removeItem(req.user.id, id);
   }
 }

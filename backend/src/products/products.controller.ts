@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  ParseUUIDPipe,
   UseGuards,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
@@ -26,6 +27,13 @@ export class ProductsController {
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   findAllForAdmin() {
     return this.productsService.findAllForAdmin();
+  }
+
+  @Get('admin/detail/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  findOneForAdmin(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.productsService.findOneForAdmin(id);
   }
 
   // Public — powers /shop
@@ -50,14 +58,14 @@ export class ProductsController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
-  update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
+  update(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateProductDto) {
     return this.productsService.update(id, dto);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
-  archive(@Param('id') id: string) {
+  archive(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.productsService.archive(id);
   }
 }

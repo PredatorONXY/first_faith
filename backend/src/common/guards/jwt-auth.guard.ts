@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
@@ -28,18 +29,33 @@ export class JwtAuthGuard implements CanActivate {
       // database on every protected request so a client-controlled JWT payload
       // (or a role changed after token issuance) can never grant privileges.
       // Do not attach passwordHash or other account fields to the request.
-      const user = await this.prisma.user.findUnique({
-        where: { id: payload.sub },
-        select: { id: true, role: true },
-      });
+      let user = null;
+      try {
+        user = await this.prisma.user.findUnique({
+          where: { id: payload.sub },
+          select: { id: true, role: true, emailVerified: true },
+        });
+      } catch {
+        user = await this.prisma.user.findUnique({
+          where: { id: payload.sub },
+          select: { id: true, role: true, emailVerified: true },
+        });
+      }
 
       if (!user) {
         throw new UnauthorizedException('No matching account found');
       }
 
+      if (user.role === Role.CUSTOMER && !user.emailVerified) {
+        throw new UnauthorizedException('Please verify your email before signing in.');
+      }
+
       request.user = user;
       return true;
-    } catch {
+    } catch (err) {
+      if (err instanceof UnauthorizedException) {
+        throw err;
+      }
       throw new UnauthorizedException('Invalid or expired session');
     }
   }

@@ -35,14 +35,17 @@ export default function ContactPage() {
             )}
             {settings.contact_phone && <p>Phone: {settings.contact_phone}</p>}
             {settings.contact_address && <p>Location: {settings.contact_address}</p>}
-            {settings.instagram_url && (
-              <p>
-                Social:{' '}
-                <a href={settings.instagram_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--ff-burgundy)', fontWeight: 600 }}>
-                  Instagram
-                </a>
-              </p>
-            )}
+            <p>
+              Social:{' '}
+              <a
+                href={settings.instagram_url || 'https://www.instagram.com/_firstfaithofficial?stkn=MTQ5ZTFlYXczdzE0ZA=='}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'var(--ff-burgundy)', fontWeight: 600 }}
+              >
+                Instagram
+              </a>
+            </p>
           </div>
         </div>
 

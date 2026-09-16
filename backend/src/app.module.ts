@@ -17,17 +17,21 @@ import { AdminModule } from './admin/admin.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { PrismaModule } from './common/prisma.module';
 import { StorageModule } from './common/storage/storage.module';
+import { EmailModule } from './common/email/email.module';
+import { WishlistModule } from './wishlist/wishlist.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]), // basic rate limiting
     PrismaModule,
+    EmailModule,
     AuthModule,
     ProductsModule,
     CategoriesModule,
     IngredientsModule,
     CartModule,
+    WishlistModule,
     OrdersModule,
     PaymentsModule,
     ReviewsModule,

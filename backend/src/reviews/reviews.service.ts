@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ReviewStatus } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 
@@ -17,7 +17,15 @@ export class ReviewsService {
 
   // New reviews always start PENDING — never auto-published — so an
   // admin has to approve them via /admin/reviews first.
-  create(userId: string, productId: string, rating: number, title?: string, body?: string) {
+  async create(userId: string, productId: string, rating: number, title?: string, body?: string) {
+    const product = await this.prisma.product.findUnique({ where: { id: productId } });
+    if (!product) throw new NotFoundException('Product not found');
+
+    const existing = await this.prisma.review.findFirst({ where: { userId, productId } });
+    if (existing) {
+      throw new ConflictException('You have already submitted a review for this product');
+    }
+
     return this.prisma.review.create({
       data: { userId, productId, rating, title, body, status: ReviewStatus.PENDING },
     });
@@ -34,5 +42,11 @@ export class ReviewsService {
     const review = await this.prisma.review.findUnique({ where: { id } });
     if (!review) throw new NotFoundException('Review not found');
     return this.prisma.review.update({ where: { id }, data: { status } });
+  }
+
+  async delete(id: string) {
+    const review = await this.prisma.review.findUnique({ where: { id } });
+    if (!review) throw new NotFoundException('Review not found');
+    return this.prisma.review.delete({ where: { id } });
   }
 }

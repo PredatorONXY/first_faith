@@ -6,6 +6,7 @@ import { ProductImageGallery } from '../../../../components/product/ProductImage
 import { HeroIngredientCards } from '../../../../components/product/HeroIngredientCards';
 import { getProductContent } from '../../../../lib/productContent';
 import { getProductGalleryImages } from '../../../../lib/productImages';
+import { ProductReviews } from '../../../../components/product/ProductReviews';
 
 interface Props {
   params: { slug: string };
@@ -58,15 +59,15 @@ export default async function ProductPage({ params }: Props) {
 
         <div className="product-info-panel">
           <p className="eyebrow">The essential ritual</p>
-          <h1 className="product-detail-title">{content.name}</h1>
-          {content.tagline && <p className="product-detail-tagline">{content.tagline}</p>}
+          <h1 className="product-detail-title">{product.name || content.name}</h1>
+          {(product.tagline || content.tagline) && <p className="product-detail-tagline">{product.tagline || content.tagline}</p>}
 
           <div className="product-price-bar">
             <span className="product-price-main">
               {price ? `₹${price}` : 'Price coming soon'}
             </span>
             {variant && (
-              <span className="product-size-pill">{content.sizeLabel ?? variant.sizeLabel}</span>
+              <span className="product-size-pill">{variant.sizeLabel || content.sizeLabel}</span>
             )}
           </div>
 
@@ -116,6 +117,8 @@ export default async function ProductPage({ params }: Props) {
           </p>
         </section>
       )}
+
+      <ProductReviews productId={product.id} productName={product.name || content.name} />
     </main>
   );
 }

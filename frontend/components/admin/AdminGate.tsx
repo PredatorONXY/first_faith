@@ -12,7 +12,7 @@ export function AdminGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login?next=/admin');
+      router.replace('/admin/login');
       return;
     }
 
@@ -23,10 +23,10 @@ export function AdminGate({ children }: { children: React.ReactNode }) {
         if (profile.role === 'ADMIN' || profile.role === 'SUPER_ADMIN') {
           setAllowed(true);
         } else {
-          router.replace('/account');
+          router.replace('/admin/login');
         }
       })
-      .catch(() => router.replace('/login?next=/admin'));
+      .catch(() => router.replace('/admin/login'));
 
     return () => { active = false; };
   }, [router]);

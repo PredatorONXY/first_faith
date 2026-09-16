@@ -13,13 +13,37 @@ export class HttpExceptionFilter implements ExceptionFilter {
       ? exception.getStatus()
       : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const message = exception instanceof HttpException
-      ? exception.getResponse()
-      : 'Something went wrong. Please try again.';
+    let message: string | string[] = 'Something went wrong. Please try again.';
+
+    if (exception instanceof HttpException) {
+      const res = exception.getResponse();
+      if (typeof res === 'string') {
+        message = res;
+      } else if (typeof res === 'object' && res !== null) {
+        const obj = res as Record<string, unknown>;
+        if (Array.isArray(obj.message)) {
+          message = obj.message.map((m) => String(m));
+        } else if (typeof obj.message === 'string') {
+          message = obj.message;
+        } else if (typeof obj.error === 'string') {
+          message = obj.error;
+        } else {
+          message = exception.message || 'Request failed';
+        }
+      }
+    }
 
     if (status === HttpStatus.INTERNAL_SERVER_ERROR) {
       // Full detail goes to logs only — never leak internals to the client.
-      this.logger.error(exception);
+      if (exception && typeof exception === 'object') {
+        const err = exception as Record<string, unknown>;
+        this.logger.error(
+          `Internal Error: name=${err.name} code=${err.code} meta=${JSON.stringify(err.meta || {})} clientVersion=${err.clientVersion}\nMessage: ${err.message}`,
+          typeof err.stack === 'string' ? err.stack : undefined,
+        );
+      } else {
+        this.logger.error(exception);
+      }
     }
 
     response.status(status).json({

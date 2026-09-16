@@ -17,19 +17,44 @@ const SEED_KEYS = [
   'gst_number',
 ];
 
+const DEFAULT_SETTINGS: Record<string, string> = {
+  store_name: 'First Faith',
+  contact_email: '',
+  contact_phone: '',
+  contact_address: '',
+  instagram_url: 'https://www.instagram.com/_firstfaithofficial?stkn=MTQ5ZTFlYXczdzE0ZA==',
+  facebook_url: '',
+  shipping_policy: '',
+  return_policy: '',
+  gst_number: '',
+};
+
 @Injectable()
 export class SettingsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getAll() {
-    const rows = await this.prisma.siteSetting.findMany();
-    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-    // Ensure every expected key is present in the response, even if unset,
-    // so the frontend/admin form always has a stable shape to render.
-    for (const key of SEED_KEYS) {
-      if (!(key in map)) map[key] = '';
+    try {
+      const rows = await this.prisma.siteSetting.findMany();
+      const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+      for (const key of SEED_KEYS) {
+        if (!map[key]) map[key] = DEFAULT_SETTINGS[key] ?? '';
+      }
+      return map;
+    } catch {
+      // Retry once if there was a transient connection blip
+      try {
+        const rows = await this.prisma.siteSetting.findMany();
+        const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+        for (const key of SEED_KEYS) {
+          if (!map[key]) map[key] = DEFAULT_SETTINGS[key] ?? '';
+        }
+        return map;
+      } catch {
+        // Return stable default keys so the frontend never crashes
+        return { ...DEFAULT_SETTINGS };
+      }
     }
-    return map;
   }
 
   async update(values: Record<string, string>) {

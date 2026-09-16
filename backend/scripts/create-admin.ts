@@ -31,6 +31,8 @@ async function main() {
   const pool = new Pool({ connectionString, max: 1 });
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
+  const requestedRole = process.env.ADMIN_ROLE?.toUpperCase() === 'SUPER_ADMIN' ? Role.SUPER_ADMIN : Role.ADMIN;
+
   try {
     const passwordHash = await bcrypt.hash(password, 12);
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -38,14 +40,14 @@ async function main() {
     if (existing) {
       await prisma.user.update({
         where: { id: existing.id },
-        data: { role: Role.ADMIN, passwordHash, ...(fullName ? { fullName } : {}) },
+        data: { role: requestedRole, passwordHash, ...(fullName ? { fullName } : {}) },
       });
-      console.log(`Administrator access granted to ${email}.`);
+      console.log(`${requestedRole} access granted to ${email}.`);
     } else {
       await prisma.user.create({
-        data: { email, passwordHash, fullName, role: Role.ADMIN },
+        data: { email, passwordHash, fullName, role: requestedRole },
       });
-      console.log(`Administrator account created for ${email}.`);
+      console.log(`${requestedRole} account created for ${email}.`);
     }
   } finally {
     await prisma.$disconnect();

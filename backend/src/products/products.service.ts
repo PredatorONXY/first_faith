@@ -62,12 +62,21 @@ export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
   // Public catalog listing — only published products, no draft/archived leakage.
-  findAllPublished() {
-    return this.prisma.product.findMany({
-      where: { status: ProductStatus.PUBLISHED },
-      orderBy: { sortOrder: 'asc' },
-      include: PUBLIC_CATALOG_INCLUDE,
-    });
+  async findAllPublished() {
+    try {
+      return await this.prisma.product.findMany({
+        where: { status: ProductStatus.PUBLISHED },
+        orderBy: { sortOrder: 'asc' },
+        include: PUBLIC_CATALOG_INCLUDE,
+      });
+    } catch {
+      // Retry once if there was a transient network or pool socket reset
+      return await this.prisma.product.findMany({
+        where: { status: ProductStatus.PUBLISHED },
+        orderBy: { sortOrder: 'asc' },
+        include: PUBLIC_CATALOG_INCLUDE,
+      });
+    }
   }
 
   async findBySlug(slug: string) {
@@ -134,10 +143,20 @@ export class ProductsService {
     });
   }
 
+  // Admin-only: get single product by ID regardless of status.
+  async findOneForAdmin(id: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      include: PUBLIC_CATALOG_INCLUDE,
+    });
+    if (!product) throw new NotFoundException('Product not found');
+    return product;
+  }
+
   async update(id: string, dto: UpdateProductDto) {
     await this.ensureExists(id);
 
-    return this.prisma.product.update({
+    await this.prisma.product.update({
       where: { id },
       data: {
         name: dto.name,
@@ -148,6 +167,38 @@ export class ProductsService {
         suitableSkinTypes: dto.suitableSkinTypes,
         status: dto.status,
       },
+      include: PUBLIC_CATALOG_INCLUDE,
+    });
+
+    if (dto.price !== undefined || dto.sizeLabel !== undefined || dto.stockQuantity !== undefined) {
+      const variant = await this.prisma.productVariant.findFirst({
+        where: { productId: id },
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+      });
+
+      if (variant) {
+        if (dto.price !== undefined || dto.sizeLabel !== undefined) {
+          await this.prisma.productVariant.update({
+            where: { id: variant.id },
+            data: {
+              ...(dto.price !== undefined ? { price: dto.price } : {}),
+              ...(dto.sizeLabel !== undefined ? { sizeLabel: dto.sizeLabel } : {}),
+            },
+          });
+        }
+
+        if (dto.stockQuantity !== undefined) {
+          await this.prisma.inventory.upsert({
+            where: { variantId: variant.id },
+            create: { variantId: variant.id, stockQuantity: dto.stockQuantity },
+            update: { stockQuantity: dto.stockQuantity },
+          });
+        }
+      }
+    }
+
+    return this.prisma.product.findUnique({
+      where: { id },
       include: PUBLIC_CATALOG_INCLUDE,
     });
   }

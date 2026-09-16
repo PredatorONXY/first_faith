@@ -13,9 +13,9 @@ export function ProductCard({ product }: { product: Product }) {
   } : null);
   const variant = product.variants?.find((v) => v.isDefault) ?? product.variants?.[0];
   const content = getProductContent(product.slug) ?? null;
-  const displayName = content?.name ?? product.name;
-  const displayTagline = content?.tagline ?? product.tagline;
-  const displaySize = content?.sizeLabel ?? variant?.sizeLabel;
+  const displayName = product.name || content?.name;
+  const displayTagline = product.tagline || content?.tagline;
+  const displaySize = variant?.sizeLabel || content?.sizeLabel;
   const price = variant ? Number(variant.price).toLocaleString('en-IN') : null;
 
   return (

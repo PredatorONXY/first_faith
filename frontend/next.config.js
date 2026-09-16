@@ -41,7 +41,9 @@ const nextConfig = {
       '@nestjs/config',
       '@nestjs/jwt',
       '@prisma/client',
+      '@prisma/adapter-pg',
       'prisma',
+      'pg',
       'bcryptjs',
       'class-transformer',
       'class-validator',
@@ -70,6 +72,7 @@ const nextConfig = {
               /^@nestjs\//.test(request) ||
               /^@prisma\//.test(request) ||
               request === 'prisma' ||
+              request === 'pg' ||
               request === 'express' ||
               request === 'class-transformer' ||
               request === 'class-transformer/storage' ||
