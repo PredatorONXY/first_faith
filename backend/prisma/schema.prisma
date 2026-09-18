@@ -17,6 +17,8 @@ model User {
   emailVerified              Boolean       @default(false)
   emailVerificationTokenHash String?
   emailVerificationExpiresAt DateTime?
+  failedLoginAttempts        Int           @default(0)
+  loginLockedUntil           DateTime?
   createdAt                  DateTime      @default(now())
   updatedAt                  DateTime      @updatedAt
   passwordHash               String?
@@ -349,4 +351,17 @@ enum ReviewStatus {
 enum DiscountType {
   PERCENTAGE
   FLAT
+}
+
+model AdminNotification {
+  id        String   @id @default(uuid())
+  type      String   @default("NEW_ORDER")
+  title     String
+  message   String
+  orderId   String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([isRead])
+  @@index([createdAt])
 }

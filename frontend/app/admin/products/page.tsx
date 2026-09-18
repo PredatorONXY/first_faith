@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { getPrimaryProductImage } from '../../../lib/productImages';
 import { apiFetch } from '../../../lib/api';
 import type { Product } from '../../../types/product';
 
@@ -46,7 +48,7 @@ export default function AdminProductsPage() {
           <table className="admin-table">
             <thead>
               <tr>
-                <th style={{ minWidth: '220px' }}>Product</th>
+                <th style={{ minWidth: '240px' }}>Product</th>
                 <th style={{ minWidth: '120px' }}>Measurement</th>
                 <th style={{ minWidth: '120px' }}>Price / MRP</th>
                 <th style={{ minWidth: '120px' }}>Stock</th>
@@ -57,21 +59,37 @@ export default function AdminProductsPage() {
             <tbody>
               {products.map((product) => {
                 const variant = product.variants?.find((v) => v.isDefault) || product.variants?.[0];
+                const primaryImg = getPrimaryProductImage(product.slug);
                 return (
                   <tr key={product.id}>
                     <td>
-                      <Link
-                        href={`/admin/products/${product.id}`}
-                        className="admin-btn-text"
-                        style={{ padding: 0, fontSize: '0.95rem' }}
-                      >
-                        {product.name}
-                      </Link>
-                      {product.tagline && (
-                        <p style={{ fontSize: '0.75rem', color: 'var(--ff-charcoal-soft)', marginTop: '0.2rem' }}>
-                          {product.tagline}
-                        </p>
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        {primaryImg && (
+                          <div style={{ position: 'relative', width: 42, height: 42, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: 'rgba(238,216,207,0.3)', border: '1px solid var(--ff-stone)' }}>
+                            <Image
+                              src={primaryImg.src}
+                              alt={primaryImg.alt || product.name}
+                              fill
+                              style={{ objectFit: 'cover' }}
+                              sizes="42px"
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <Link
+                            href={`/admin/products/${product.id}`}
+                            className="admin-btn-text"
+                            style={{ padding: 0, fontSize: '0.95rem', fontWeight: 600 }}
+                          >
+                            {product.name}
+                          </Link>
+                          {product.tagline && (
+                            <p style={{ fontSize: '0.75rem', color: 'var(--ff-charcoal-soft)', marginTop: '0.2rem' }}>
+                              {product.tagline}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td style={{ color: 'var(--ff-charcoal-soft)' }}>{variant?.sizeLabel ?? '—'}</td>
                     <td style={{ fontWeight: 600, color: 'var(--ff-charcoal)' }}>

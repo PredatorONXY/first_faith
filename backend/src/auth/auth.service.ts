@@ -32,6 +32,11 @@ export class AuthService {
     email = email.trim().toLowerCase();
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) {
+      if (!existing.emailVerified) {
+        throw new ConflictException(
+          'An account with this email is already registered but not yet verified. Please check your verification email or use the resend-verification flow.',
+        );
+      }
       throw new ConflictException('An account with this email already exists');
     }
 
@@ -83,9 +88,52 @@ export class AuthService {
       }
     }
 
-    if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+    if (!user) {
       throw new UnauthorizedException('Invalid email or password');
     }
+
+    const now = new Date();
+
+    if (user.loginLockedUntil && user.loginLockedUntil > now) {
+      throw new UnauthorizedException(
+        'Account is temporarily locked due to too many failed login attempts. Please try again later.',
+      );
+    }
+
+    if (!user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+      const currentAttempts =
+        user.loginLockedUntil && user.loginLockedUntil <= now ? 0 : user.failedLoginAttempts;
+      const nextAttempts = currentAttempts + 1;
+      const willLock = nextAttempts >= 5;
+      const lockUntil = willLock ? new Date(now.getTime() + 15 * 60 * 1000) : null;
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: nextAttempts,
+          loginLockedUntil: lockUntil,
+        },
+      });
+
+      if (willLock) {
+        throw new UnauthorizedException(
+          'Account is temporarily locked due to too many failed login attempts. Please try again later.',
+        );
+      }
+
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (user.failedLoginAttempts > 0 || user.loginLockedUntil) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: 0,
+          loginLockedUntil: null,
+        },
+      });
+    }
+
     return user;
   }
 
@@ -176,7 +224,12 @@ export class AuthService {
       if (existingByEmail) {
         user = await this.prisma.user.update({
           where: { id: existingByEmail.id },
-          data: { googleId: googleUserId },
+          data: {
+            googleId: googleUserId,
+            emailVerified: true,
+            emailVerificationTokenHash: null,
+            emailVerificationExpiresAt: null,
+          },
         });
       } else {
         try {
@@ -186,6 +239,9 @@ export class AuthService {
               fullName,
               googleId: googleUserId,
               role: Role.CUSTOMER,
+              emailVerified: true,
+              emailVerificationTokenHash: null,
+              emailVerificationExpiresAt: null,
               passwordHash: null,
             },
           });
@@ -196,6 +252,15 @@ export class AuthService {
           throw dbError;
         }
       }
+    } else if (!user.emailVerified) {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          emailVerified: true,
+          emailVerificationTokenHash: null,
+          emailVerificationExpiresAt: null,
+        },
+      });
     }
 
     return this.issueTokens(user.id, user.email, user.role);

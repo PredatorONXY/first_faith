@@ -109,6 +109,8 @@ class UpdateProfileDto {
   phone?: string;
 }
 
+import { Throttle } from '@nestjs/throttler';
+
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -117,6 +119,7 @@ export class AuthController {
   ) {}
 
   @Post('register')
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   register(@Body() dto: RegisterDto, @Req() req: Request) {
     if ((req.body as any)?.role !== undefined) {
       throw new BadRequestException('Role cannot be specified during registration');
@@ -130,16 +133,19 @@ export class AuthController {
   }
 
   @Post('resend-verification')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   resendVerification(@Body() dto: ResendVerificationDto) {
     return this.authService.resendVerification(dto.email);
   }
 
   @Post('login')
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto.email, dto.password);
   }
 
   @Post('admin/login')
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   adminLogin(@Body() dto: LoginDto) {
     return this.authService.adminLogin(dto.email, dto.password);
   }

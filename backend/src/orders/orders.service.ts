@@ -1,10 +1,16 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { OrderStatus, PaymentProvider, PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
+import { EmailService } from '../common/email/email.service';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(OrdersService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   async createFromCart(userId: string, addressId: string, paymentMethod: PaymentProvider, couponCode?: string) {
     if (paymentMethod !== PaymentProvider.COD) {
@@ -61,7 +67,7 @@ export class OrdersService {
     const grandTotal = Math.max(subtotal - discountTotal, 0) + shippingFee;
     const orderNumber = `FF-${Date.now().toString().slice(-8)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
 
-    return this.prisma.$transaction(async (tx) => {
+    const createdOrder = await this.prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
         data: {
           orderNumber,
@@ -114,6 +120,46 @@ export class OrdersService {
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
       return created;
     });
+
+    // Asynchronous & non-blocking admin notification & email alert
+    try {
+      await this.prisma.adminNotification.create({
+        data: {
+          type: 'NEW_ORDER',
+          title: `New Order #${createdOrder.orderNumber}`,
+          message: `Order #${createdOrder.orderNumber} placed by ${user?.fullName || user?.email || 'Customer'} for ₹${Number(createdOrder.grandTotal).toLocaleString('en-IN')}`,
+          orderId: createdOrder.id,
+          isRead: false,
+        },
+      });
+    } catch (notifErr: any) {
+      this.logger.error(`Failed to create admin dashboard notification: ${notifErr.message}`);
+    }
+
+    try {
+      const itemCount = cart.items.reduce((sum, it) => sum + it.quantity, 0);
+      this.emailService
+        .sendAdminNewOrderEmail({
+          orderId: createdOrder.id,
+          orderNumber: createdOrder.orderNumber,
+          customerName: user?.fullName || null,
+          customerEmail: user?.email || '',
+          orderDate: new Date(),
+          itemCount,
+          totalAmount: Number(createdOrder.grandTotal),
+          paymentStatus: PaymentStatus.CREATED,
+          orderStatus: createdOrder.status,
+        })
+        .catch((err) => {
+          this.logger.error(
+            `Non-blocking admin alert email error for #${createdOrder.orderNumber}: ${err.message}`,
+          );
+        });
+    } catch (emailErr: any) {
+      this.logger.error(`Failed to trigger admin order alert email: ${emailErr.message}`);
+    }
+
+    return createdOrder;
   }
 
   findAllForUser(userId: string) {

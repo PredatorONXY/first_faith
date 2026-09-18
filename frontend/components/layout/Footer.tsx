@@ -66,7 +66,12 @@ export function Footer({ settings = {} }: { settings?: FooterSettings }) {
         </div>
 
         <div className="footer-bottom">
-          © {new Date().getFullYear()} First Faith. Beyond Just Skincare. All rights reserved.
+          <p style={{ margin: 0 }}>
+            © {new Date().getFullYear()} First Faith. Beyond Just Skincare. All rights reserved.
+          </p>
+          <p style={{ margin: '0.45rem 0 0', fontSize: '0.75rem', opacity: 0.85, letterSpacing: '0.02em' }}>
+            Developed by Jaskaran Singh
+          </p>
         </div>
       </div>
     </footer>

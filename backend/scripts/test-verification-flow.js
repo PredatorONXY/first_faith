@@ -1,3 +1,7 @@
+const net = require('net');
+if (typeof net.setDefaultAutoSelectFamily === 'function') {
+  net.setDefaultAutoSelectFamily(false);
+}
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
@@ -107,6 +111,23 @@ async function runExactFlow() {
       `Role: ${userInDb?.role}, emailVerified: ${userInDb?.emailVerified}`,
     );
 
+    // B2. Attempt duplicate registration on unverified account -> 409 with recovery message, no duplicate User
+    const dupUnverifiedRes = await request('POST', '/api/auth/register', {
+      body: { email: customerEmail, password: 'AnotherPassword123!', fullName: 'Duplicate User' },
+    });
+    const dupCountDb = await pool.query('SELECT COUNT(*)::int as count FROM "User" WHERE email = $1', [customerEmail]);
+    const dupUnverifiedPassed =
+      dupUnverifiedRes.status === 409 &&
+      (dupUnverifiedRes.body?.message || '').includes('already registered but not yet verified') &&
+      (dupUnverifiedRes.body?.message || '').includes('resend-verification') &&
+      dupCountDb.rows[0]?.count === 1;
+    logStep(
+      'B2',
+      'Duplicate registration on unverified email returns recovery message (no duplicate User)',
+      dupUnverifiedPassed,
+      `Status: ${dupUnverifiedRes.status}, Message: "${dupUnverifiedRes.body?.message}", Users in DB: ${dupCountDb.rows[0]?.count}`,
+    );
+
     // C. Confirm Admin -> Customers does NOT show that account (and does NOT show admins)
     const adminCustRes1 = await request('GET', '/api/admin/users', { token: adminToken });
     const custFoundBefore = Array.isArray(adminCustRes1.body) && adminCustRes1.body.some((u) => u.email === customerEmail);
@@ -172,6 +193,22 @@ async function runExactFlow() {
       'Attempt login again -> HTTP 200/201 and JWT issued',
       loginSuccess,
       `Status: ${verifiedLoginRes.status}, JWT issued: ${Boolean(customerToken)}`,
+    );
+
+    // F2. Attempt duplicate registration on verified account -> 409 already exists, no duplicate User
+    const dupVerifiedRes = await request('POST', '/api/auth/register', {
+      body: { email: customerEmail, password: customerPass, fullName: customerName },
+    });
+    const dupVerifiedCountDb = await pool.query('SELECT COUNT(*)::int as count FROM "User" WHERE email = $1', [customerEmail]);
+    const dupVerifiedPassed =
+      dupVerifiedRes.status === 409 &&
+      dupVerifiedRes.body?.message === 'An account with this email already exists' &&
+      dupVerifiedCountDb.rows[0]?.count === 1;
+    logStep(
+      'F2',
+      'Duplicate registration on verified email rejected as already registered',
+      dupVerifiedPassed,
+      `Status: ${dupVerifiedRes.status}, Message: "${dupVerifiedRes.body?.message}", Users in DB: ${dupVerifiedCountDb.rows[0]?.count}`,
     );
 
     // G. Confirm Admin -> Customers now shows that customer

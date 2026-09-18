@@ -76,4 +76,34 @@ export class AdminService {
     if (!order) throw new NotFoundException('Order not found');
     return this.prisma.order.update({ where: { id }, data: { status } });
   }
+
+  async notifications() {
+    const [notifications, unreadCount] = await Promise.all([
+      this.prisma.adminNotification.findMany({
+        take: 20,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.adminNotification.count({
+        where: { isRead: false },
+      }),
+    ]);
+    return { notifications, unreadCount };
+  }
+
+  async markNotificationRead(id: string) {
+    const notif = await this.prisma.adminNotification.findUnique({ where: { id } });
+    if (!notif) throw new NotFoundException('Notification not found');
+    return this.prisma.adminNotification.update({
+      where: { id },
+      data: { isRead: true },
+    });
+  }
+
+  async markAllNotificationsRead() {
+    await this.prisma.adminNotification.updateMany({
+      where: { isRead: false },
+      data: { isRead: true },
+    });
+    return { success: true };
+  }
 }

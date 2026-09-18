@@ -36,4 +36,19 @@ export class AdminController {
   updateOrderStatus(@Param('id') id: string, @Body() dto: UpdateAdminOrderDto) {
     return this.adminService.updateOrderStatus(id, dto.status);
   }
+
+  @Get('notifications')
+  notifications() {
+    return this.adminService.notifications();
+  }
+
+  @Patch('notifications/:id/read')
+  markNotificationRead(@Param('id') id: string) {
+    return this.adminService.markNotificationRead(id);
+  }
+
+  @Patch('notifications/mark-all-read')
+  markAllNotificationsRead() {
+    return this.adminService.markAllNotificationsRead();
+  }
 }
