@@ -13,7 +13,7 @@ export class OrdersService {
   ) {}
 
   async createFromCart(userId: string, addressId: string, paymentMethod: PaymentProvider, couponCode?: string) {
-    if (paymentMethod !== PaymentProvider.COD) {
+    if (paymentMethod !== PaymentProvider.COD && paymentMethod !== PaymentProvider.RAZORPAY) {
       throw new BadRequestException('That payment method is not available yet');
     }
 
@@ -121,42 +121,44 @@ export class OrdersService {
       return created;
     });
 
-    // Asynchronous & non-blocking admin notification & email alert
-    try {
-      await this.prisma.adminNotification.create({
-        data: {
-          type: 'NEW_ORDER',
-          title: `New Order #${createdOrder.orderNumber}`,
-          message: `Order #${createdOrder.orderNumber} placed by ${user?.fullName || user?.email || 'Customer'} for ₹${Number(createdOrder.grandTotal).toLocaleString('en-IN')}`,
-          orderId: createdOrder.id,
-          isRead: false,
-        },
-      });
-    } catch (notifErr: any) {
-      this.logger.error(`Failed to create admin dashboard notification: ${notifErr.message}`);
-    }
-
-    try {
-      const itemCount = cart.items.reduce((sum, it) => sum + it.quantity, 0);
-      this.emailService
-        .sendAdminNewOrderEmail({
-          orderId: createdOrder.id,
-          orderNumber: createdOrder.orderNumber,
-          customerName: user?.fullName || null,
-          customerEmail: user?.email || '',
-          orderDate: new Date(),
-          itemCount,
-          totalAmount: Number(createdOrder.grandTotal),
-          paymentStatus: PaymentStatus.CREATED,
-          orderStatus: createdOrder.status,
-        })
-        .catch((err) => {
-          this.logger.error(
-            `Non-blocking admin alert email error for #${createdOrder.orderNumber}: ${err.message}`,
-          );
+    // For COD orders, dispatch asynchronous & non-blocking admin notification & email alert immediately
+    if (paymentMethod === PaymentProvider.COD) {
+      try {
+        await this.prisma.adminNotification.create({
+          data: {
+            type: 'NEW_ORDER',
+            title: `New Order #${createdOrder.orderNumber}`,
+            message: `Order #${createdOrder.orderNumber} placed by ${user?.fullName || user?.email || 'Customer'} for ₹${Number(createdOrder.grandTotal).toLocaleString('en-IN')} (COD)`,
+            orderId: createdOrder.id,
+            isRead: false,
+          },
         });
-    } catch (emailErr: any) {
-      this.logger.error(`Failed to trigger admin order alert email: ${emailErr.message}`);
+      } catch (notifErr: any) {
+        this.logger.error(`Failed to create admin dashboard notification: ${notifErr.message}`);
+      }
+
+      try {
+        const itemCount = cart.items.reduce((sum, it) => sum + it.quantity, 0);
+        this.emailService
+          .sendAdminNewOrderEmail({
+            orderId: createdOrder.id,
+            orderNumber: createdOrder.orderNumber,
+            customerName: user?.fullName || null,
+            customerEmail: user?.email || '',
+            orderDate: new Date(),
+            itemCount,
+            totalAmount: Number(createdOrder.grandTotal),
+            paymentStatus: PaymentStatus.CREATED,
+            orderStatus: createdOrder.status,
+          })
+          .catch((err) => {
+            this.logger.error(
+              `Non-blocking admin alert email error for #${createdOrder.orderNumber}: ${err.message}`,
+            );
+          });
+      } catch (emailErr: any) {
+        this.logger.error(`Failed to trigger admin order alert email: ${emailErr.message}`);
+      }
     }
 
     return createdOrder;

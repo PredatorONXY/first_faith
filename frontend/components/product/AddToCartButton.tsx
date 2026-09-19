@@ -4,24 +4,34 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useCart } from '../../hooks/useCart';
 import { getAccessToken } from '../../lib/api';
-import { Button } from '../ui/Button';
 
-export function AddToCartButton({ variantId, disabled = false }: { variantId: string; disabled?: boolean }) {
-  const { addItem } = useCart({ autoLoad: false });
+export function AddToCartButton({
+  variantId,
+  disabled = false,
+}: {
+  variantId: string;
+  disabled?: boolean;
+}) {
+  const { cart, addItem, loading } = useCart();
   const [adding, setAdding] = useState(false);
-  const [added, setAdded] = useState(false);
   const [error, setError] = useState('');
+
+  const isInCart = Boolean(
+    cart?.items.some(
+      (item) => (item.variant?.id || item.variantId) === variantId && item.quantity > 0,
+    ),
+  );
 
   async function handleAdd() {
     if (!getAccessToken()) {
       setError('Sign in to add products to your cart.');
       return;
     }
+    if (adding || disabled) return;
     setAdding(true);
     setError('');
     try {
       await addItem(variantId);
-      setAdded(true);
     } catch (addError) {
       setError(addError instanceof Error ? addError.message : 'Unable to add this item');
     } finally {
@@ -30,13 +40,47 @@ export function AddToCartButton({ variantId, disabled = false }: { variantId: st
   }
 
   return (
-    <div>
-      <Button type="button" onClick={handleAdd} disabled={disabled || adding}>
-        {adding ? 'Adding...' : added ? 'Added to cart' : 'Add to cart'}
-      </Button>
+    <div className="product-detail-cart-wrap">
+      {!isInCart ? (
+        <button
+          type="button"
+          onClick={handleAdd}
+          disabled={disabled || adding || loading}
+          className="product-detail-btn product-detail-add-btn"
+          aria-label={adding ? 'Adding to cart' : 'Add to cart'}
+        >
+          {adding ? 'Adding...' : 'Add to cart'}
+        </button>
+      ) : (
+        <div className="product-detail-btn-stack">
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={disabled || adding}
+            className="product-detail-btn product-detail-add-btn is-added"
+            aria-label="Added to cart"
+            title="Click to add another to cart"
+          >
+            {adding ? 'Adding...' : 'Added to cart'}
+          </button>
+          <Link
+            href="/cart"
+            className="product-detail-go-btn"
+            aria-label="Go to cart"
+          >
+            Go to cart
+          </Link>
+        </div>
+      )}
+
       {error && (
-        <p style={{ marginTop: '0.75rem', fontSize: '0.82rem', color: 'var(--ff-burgundy)' }}>
-          {error} <Link href="/login" style={{ textDecoration: 'underline', fontWeight: 600 }}>Log in</Link>
+        <p className="product-detail-error" role="alert">
+          {error}{' '}
+          {error.toLowerCase().includes('sign in') && (
+            <Link href="/login" className="product-detail-error-link">
+              Sign in
+            </Link>
+          )}
         </p>
       )}
     </div>

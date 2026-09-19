@@ -14,7 +14,7 @@ export function ProductCard({ product }: { product: Product }) {
   const variant = product.variants?.find((v) => v.isDefault) ?? product.variants?.[0];
   const content = getProductContent(product.slug) ?? null;
   const displayName = product.name || content?.name;
-  const displayTagline = product.tagline || content?.tagline;
+  const displayTagline = product.tagline || content?.tagline || product.shortDescription || content?.shortDescription;
   const displaySize = variant?.sizeLabel || content?.sizeLabel;
   const price = variant ? Number(variant.price).toLocaleString('en-IN') : null;
 
@@ -41,28 +41,32 @@ export function ProductCard({ product }: { product: Product }) {
       </Link>
 
       <div className="product-card-body">
-        <p className="product-card-eyebrow">Daily ritual</p>
-        <h3 className="product-card-title">
-          <Link href={`/products/${product.slug}`}>{displayName}</Link>
-        </h3>
-        {displayTagline && (
-          <p className="product-card-tagline">{displayTagline}</p>
-        )}
-
-        <div className="product-card-meta">
-          <span className="product-card-size">{displaySize}</span>
-          {price ? (
-            <span className="product-card-price">₹{price}</span>
-          ) : (
-            <span className="product-card-size">Coming soon</span>
+        <div className="product-card-info">
+          <p className="product-card-eyebrow">Daily ritual</p>
+          <h3 className="product-card-title">
+            <Link href={`/products/${product.slug}`}>{displayName}</Link>
+          </h3>
+          {displayTagline && (
+            <p className="product-card-tagline">{displayTagline}</p>
           )}
         </div>
 
-        {variant && (
-          <div className="product-card-actions">
-            <CartProductActions variantId={variant.id} stockQuantity={variant.inventory?.stockQuantity ?? 0} />
+        <div className="product-card-bottom">
+          <div className="product-card-meta">
+            <span className="product-card-size">{displaySize}</span>
+            {price ? (
+              <span className="product-card-price">₹{price}</span>
+            ) : (
+              <span className="product-card-size">Coming soon</span>
+            )}
           </div>
-        )}
+
+          {variant && (
+            <div className="product-card-actions">
+              <CartProductActions variantId={variant.id} stockQuantity={variant.inventory?.stockQuantity ?? 0} />
+            </div>
+          )}
+        </div>
       </div>
     </article>
   );

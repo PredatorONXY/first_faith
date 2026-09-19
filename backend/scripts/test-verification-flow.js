@@ -61,7 +61,7 @@ async function runExactFlow() {
   try {
     const suffix = Math.random().toString(36).slice(2, 9);
     const customerEmail = `verify_flow_${suffix}@firstfaith.com`;
-    const customerPass = `Cust_P@ss_${suffix}!`;
+    const customerPass = `Cust_P@ssw0rd1_${suffix}!`;
     const customerName = `Flow Customer ${suffix}`;
 
     // Create a temporary Admin to inspect Admin -> Customers

@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const net = require('net');
 if (typeof net.setDefaultAutoSelectFamily === 'function') {
   net.setDefaultAutoSelectFamily(false);
@@ -365,13 +367,142 @@ async function runFinalPassVerification() {
     const markAllSuccess = markAllRes.status === 200;
     logResult('H', 3, 'Admin can mark all notifications as read', markAllSuccess, `Status: ${markAllRes.status}`);
 
+    // ==========================================
+    // SECTION I: RAZORPAY PAYMENT FLOW & SIGNATURE VERIFICATION
+    // ==========================================
+    // 1. Add delivery address for customer
+    const addrRes = await request('POST', '/api/auth/addresses', {
+      token: custToken,
+      body: {
+        label: 'Penthouse',
+        line1: '42 Marine Drive',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        postalCode: '400020',
+        country: 'IN',
+        phone: '9876543210',
+      },
+    });
+    const addrId = addrRes.body?.id;
+    logResult('I', 1, 'Customer delivery address created', Boolean(addrId), `AddressId: ${addrId}`);
+
+    // 2. Add an item to cart
+    const varRes = await pool.query('SELECT id, price FROM "ProductVariant" LIMIT 1');
+    const variantId = varRes.rows[0]?.id;
+    const addCartRes = await request('POST', '/api/cart/items', {
+      token: custToken,
+      body: { variantId, quantity: 1 },
+    });
+    logResult('I', 2, 'Item added to customer cart', addCartRes.status === 201 || addCartRes.status === 200, `Status: ${addCartRes.status}`);
+
+    // 3. Create order with RAZORPAY payment method
+    const orderRes = await request('POST', '/api/orders', {
+      token: custToken,
+      body: { addressId: addrId, paymentMethod: 'RAZORPAY' },
+    });
+    const razorpayOrder = orderRes.body;
+    if (razorpayOrder?.id) createdOrderIds.push(razorpayOrder.id);
+    const orderCreated = orderRes.status === 201 && razorpayOrder?.paymentMethod === 'RAZORPAY' && razorpayOrder?.status === 'PENDING';
+    logResult('I', 3, 'Create order with paymentMethod: RAZORPAY', orderCreated, `Order #${razorpayOrder?.orderNumber}, status: ${razorpayOrder?.status}`);
+
+    // 4. Call /payments/create to initialize Razorpay payment order
+    const payCreateRes = await request('POST', '/api/payments/create', {
+      token: custToken,
+      body: { orderId: razorpayOrder.id },
+    });
+    const payCreateSuccess = payCreateRes.status === 201 && Boolean(payCreateRes.body?.razorpayOrderId) && Boolean(payCreateRes.body?.keyId);
+    logResult('I', 4, 'Backend generates Razorpay payment order (server-side amount & order ID)', payCreateSuccess, `Razorpay Order: ${payCreateRes.body?.razorpayOrderId}`);
+
+    // 5. Test invalid signature rejection (POST /payments/verify)
+    const invalidVerifyRes = await request('POST', '/api/payments/verify', {
+      token: custToken,
+      body: {
+        orderId: razorpayOrder.id,
+        razorpayOrderId: payCreateRes.body?.razorpayOrderId,
+        razorpayPaymentId: 'pay_test_forged123',
+        razorpaySignature: 'bad_signature_hex_digest',
+      },
+    });
+    const invalidRejected = invalidVerifyRes.status === 400 && String(invalidVerifyRes.body?.message || '').toLowerCase().includes('signature');
+    logResult('I', 5, 'Reject invalid Razorpay HMAC signature with 400 Bad Request', invalidRejected, `Status: ${invalidVerifyRes.status}`);
+
+    // 6. Test valid signature verification (POST /payments/verify)
+    const mockPaymentId = `pay_mock_${crypto.randomBytes(6).toString('hex')}`;
+    const validSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(`${payCreateRes.body?.razorpayOrderId}|${mockPaymentId}`)
+      .digest('hex');
+
+    const validVerifyRes = await request('POST', '/api/payments/verify', {
+      token: custToken,
+      body: {
+        orderId: razorpayOrder.id,
+        razorpayOrderId: payCreateRes.body?.razorpayOrderId,
+        razorpayPaymentId: mockPaymentId,
+        razorpaySignature: validSignature,
+      },
+    });
+    const validVerifySuccess = (validVerifyRes.status === 200 || validVerifyRes.status === 201) && validVerifyRes.body?.success === true;
+    logResult('I', 6, 'Verify valid HMAC signature: marks payment CAPTURED and order PAID', validVerifySuccess, `Status: ${validVerifyRes.status}`);
+
+    // Verify DB state for paid order & payment
+    const dbOrderCheck = await pool.query('SELECT status FROM "Order" WHERE id = $1', [razorpayOrder.id]);
+    const dbPaymentCheck = await pool.query('SELECT status, "providerPaymentId" FROM "Payment" WHERE "orderId" = $1', [razorpayOrder.id]);
+    const isPaidInDb = dbOrderCheck.rows[0]?.status === 'PAID';
+    const isCapturedInDb = dbPaymentCheck.rows[0]?.status === 'CAPTURED' && dbPaymentCheck.rows[0]?.providerPaymentId === mockPaymentId;
+    logResult('I', 7, 'Database confirmation: order status=PAID and payment status=CAPTURED', isPaidInDb && isCapturedInDb, `Order: ${dbOrderCheck.rows[0]?.status}, Payment: ${dbPaymentCheck.rows[0]?.status}`);
+
+    // 7. Verify admin notification generated for paid Razorpay order
+    const dbNotifCheck = await pool.query('SELECT id, type, title, message FROM "AdminNotification" WHERE "orderId" = $1', [razorpayOrder.id]);
+    const hasPaidNotif = dbNotifCheck.rows.length > 0 && dbNotifCheck.rows[0]?.type === 'NEW_ORDER';
+    if (dbNotifCheck.rows[0]?.id) createdNotifIds.push(dbNotifCheck.rows[0]?.id);
+    logResult('I', 8, 'In-app AdminNotification created for paid Razorpay order', hasPaidNotif, `Title: ${dbNotifCheck.rows[0]?.title}`);
+
+    // 8. Test Idempotent replay of /payments/verify
+    const replayVerifyRes = await request('POST', '/api/payments/verify', {
+      token: custToken,
+      body: {
+        orderId: razorpayOrder.id,
+        razorpayOrderId: payCreateRes.body?.razorpayOrderId,
+        razorpayPaymentId: mockPaymentId,
+        razorpaySignature: validSignature,
+      },
+    });
+    const replaySuccess = (replayVerifyRes.status === 200 || replayVerifyRes.status === 201) && replayVerifyRes.body?.alreadyProcessed === true;
+    logResult('I', 9, 'Idempotent replay of verified payment handled safely without errors', replaySuccess, `alreadyProcessed: ${replayVerifyRes.body?.alreadyProcessed}`);
+
+    // ==========================================
+    // SECTION J: PERFORMANCE OPTIMIZATIONS AUDIT
+    // ==========================================
+    const globalsCssPath = path.resolve(__dirname, '../../frontend/app/globals.css');
+    const globalsCss = fs.readFileSync(globalsCssPath, 'utf8');
+    const noRemoteBootstrap = !globalsCss.includes('jsdelivr.net/npm/bootstrap');
+    logResult('J', 1, 'Remote Bootstrap CDN eliminated from globals.css', noRemoteBootstrap, 'Zero blocking CDN css');
+
+    const hasCompositedBg = globalsCss.includes('body::before') && !globalsCss.includes('background-attachment: fixed;');
+    logResult('J', 2, 'Mobile/desktop scroll repaint eliminated via GPU composited body::before', hasCompositedBg, 'No background-attachment: fixed repaint jank');
+
+    const headerTsxPath = path.resolve(__dirname, '../../frontend/components/layout/Header.tsx');
+    const headerTsx = fs.readFileSync(headerTsxPath, 'utf8');
+    const hasPassiveScroll = headerTsx.includes('{ passive: true }') && headerTsx.includes('requestAnimationFrame');
+    logResult('J', 3, 'Passive scroll listener with rAF throttling active on Header', hasPassiveScroll, 'Unblocks browser compositing thread');
+
     console.log('\n=== FINAL PASS VERIFICATION SUMMARY ===');
     const passedCount = results.filter((r) => r.passed).length;
     console.log(`Passed: ${passedCount}/${results.length}`);
     const allPassed = results.every((r) => r.passed);
     console.log(`All tests passed: ${allPassed ? 'YES' : 'NO'}`);
   } finally {
+    if (createdOrderIds.length > 0) {
+      await pool.query('DELETE FROM "Payment" WHERE "orderId" = ANY($1)', [createdOrderIds]);
+      await pool.query('DELETE FROM "OrderItem" WHERE "orderId" = ANY($1)', [createdOrderIds]);
+      await pool.query('DELETE FROM "AdminNotification" WHERE "orderId" = ANY($1)', [createdOrderIds]);
+      await pool.query('DELETE FROM "Order" WHERE id = ANY($1)', [createdOrderIds]);
+    }
     if (createdUserIds.length > 0) {
+      await pool.query('DELETE FROM "Address" WHERE "userId" = ANY($1)', [createdUserIds]);
+      await pool.query('DELETE FROM "CartItem" WHERE "cartId" IN (SELECT id FROM "Cart" WHERE "userId" = ANY($1))', [createdUserIds]);
+      await pool.query('DELETE FROM "Cart" WHERE "userId" = ANY($1)', [createdUserIds]);
       await pool.query('DELETE FROM "User" WHERE id = ANY($1)', [createdUserIds]);
     }
     if (createdNotifIds.length > 0) {

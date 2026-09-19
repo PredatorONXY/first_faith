@@ -3,6 +3,7 @@ import './globals.css';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { getSiteSettings } from '../services/settings';
+import { CartProvider } from '../context/CartContext';
 
 export const metadata: Metadata = {
   title: {
@@ -24,9 +25,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <body>
-        <Header />
-        <main>{children}</main>
-        <Footer settings={settings} />
+        <CartProvider>
+          <Header />
+          <main>{children}</main>
+          <Footer settings={settings} />
+        </CartProvider>
       </body>
     </html>
   );
