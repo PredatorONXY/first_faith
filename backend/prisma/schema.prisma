@@ -230,8 +230,11 @@ model Payment {
   provider          PaymentProvider @default(RAZORPAY)
   providerOrderId   String?
   providerPaymentId String?
+  providerRefundId  String?
   status            PaymentStatus   @default(CREATED)
   amount            Decimal         @db.Decimal(10, 2)
+  refundedAmount    Decimal         @default(0) @db.Decimal(10, 2)
+  refundedAt        DateTime?
   rawWebhookPayload Json?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt

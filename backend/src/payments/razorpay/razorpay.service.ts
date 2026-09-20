@@ -33,47 +33,75 @@ export class RazorpayService {
   // read from our own DB record, never from the client request body.
   async createPaymentOrder(orderId: string, userId: string) {
     if (!this.client) throw new ServiceUnavailableException('Online payments are not configured');
-    const order = await this.prisma.order.findFirst({ where: { id: orderId, userId } });
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, userId },
+      include: { payment: true },
+    });
     if (!order) throw new BadRequestException('Order not found');
     if (order.paymentMethod !== 'RAZORPAY') throw new BadRequestException('This order does not use online payment');
 
-    let razorpayOrder: { id: string; amount: number | string; currency: string };
-    try {
-      const res = await this.client.orders.create({
-        amount: Math.round(Number(order.grandTotal) * 100), // paise
-        currency: 'INR',
-        receipt: order.orderNumber,
-      });
-      razorpayOrder = {
-        id: res.id,
-        amount: res.amount,
-        currency: res.currency,
-      };
-    } catch (err: any) {
-      const msg = err?.error?.description || err?.message || 'Razorpay order creation failed';
-      this.logger.error(`Razorpay orders.create error for order #${order.orderNumber}: ${msg} (status: ${err?.statusCode})`);
-      throw new BadRequestException(`Payment gateway error: ${msg}`);
+    // 1. Guard against paying already paid, refunded, or cancelled orders
+    if (order.status === OrderStatus.PAID || order.payment?.status === PaymentStatus.CAPTURED) {
+      throw new BadRequestException('This order has already been paid');
+    }
+    if (order.status === OrderStatus.REFUNDED || order.payment?.status === PaymentStatus.REFUNDED) {
+      throw new BadRequestException('This order has been refunded');
+    }
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException('This order has been cancelled and cannot be paid');
     }
 
-    await this.prisma.payment.upsert({
-      where: { orderId },
-      create: {
-        orderId,
-        provider: 'RAZORPAY',
-        providerOrderId: razorpayOrder.id,
-        amount: order.grandTotal,
-        status: PaymentStatus.CREATED,
-      },
-      update: {
-        providerOrderId: razorpayOrder.id,
-        status: PaymentStatus.CREATED,
-      },
-    });
+    const amountPaise = Math.round(Number(order.grandTotal) * 100);
+    let razorpayOrderId = order.payment?.providerOrderId;
+
+    // 2. Reuse existing Razorpay order if still open/valid, or create a fresh one
+    if (razorpayOrderId) {
+      try {
+        const existingOrder = await this.client.orders.fetch(razorpayOrderId);
+        if (existingOrder.status === 'paid') {
+          throw new BadRequestException('This order has already been paid on the payment gateway');
+        }
+      } catch (fetchErr: any) {
+        if (fetchErr instanceof BadRequestException) throw fetchErr;
+        this.logger.warn(`Existing Razorpay order ${razorpayOrderId} cannot be reused: ${fetchErr.message}. Creating fresh order.`);
+        razorpayOrderId = null;
+      }
+    }
+
+    if (!razorpayOrderId) {
+      try {
+        const res = await this.client.orders.create({
+          amount: amountPaise,
+          currency: 'INR',
+          receipt: order.orderNumber,
+        });
+        razorpayOrderId = res.id;
+      } catch (err: any) {
+        const msg = err?.error?.description || err?.message || 'Razorpay order creation failed';
+        this.logger.error(`Razorpay orders.create error for order #${order.orderNumber}: ${msg} (status: ${err?.statusCode})`);
+        throw new BadRequestException(`Payment gateway error: ${msg}`);
+      }
+
+      await this.prisma.payment.upsert({
+        where: { orderId },
+        create: {
+          orderId,
+          provider: 'RAZORPAY',
+          providerOrderId: razorpayOrderId,
+          amount: order.grandTotal,
+          status: PaymentStatus.CREATED,
+        },
+        update: {
+          providerOrderId: razorpayOrderId,
+          status: PaymentStatus.CREATED,
+        },
+      });
+    }
 
     return {
-      razorpayOrderId: razorpayOrder.id,
-      amount: razorpayOrder.amount,
-      currency: razorpayOrder.currency,
+      razorpayOrderId,
+      amount: amountPaise,
+      currency: 'INR',
       keyId: this.config.get<string>('RAZORPAY_KEY_ID')?.trim(),
     };
   }
@@ -109,6 +137,14 @@ export class RazorpayService {
         orderNumber: order.orderNumber,
         alreadyProcessed: true,
       };
+    }
+
+    if (order.status === OrderStatus.REFUNDED || payment.status === PaymentStatus.REFUNDED) {
+      throw new BadRequestException('This order has been refunded');
+    }
+
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException('This order has been cancelled and cannot be paid');
     }
 
     // STEP 2: Verify that the submitted razorpayOrderId exactly matches the Razorpay order ID stored for that First Faith Payment record
@@ -386,9 +422,141 @@ export class RazorpayService {
     if (event === 'payment.failed') {
       const providerOrderId = paymentEntity.order_id;
       await this.prisma.payment.updateMany({
-        where: { providerOrderId },
+        where: {
+          providerOrderId,
+          status: { notIn: [PaymentStatus.CAPTURED, PaymentStatus.REFUNDED] },
+        },
         data: { status: PaymentStatus.FAILED, rawWebhookPayload: payload },
       });
+    }
+
+    if (event === 'refund.processed' || event === 'refund.created') {
+      const refundEntity = payload?.payload?.refund?.entity;
+
+      if (!refundEntity?.id || !refundEntity?.payment_id) {
+        throw new BadRequestException('Invalid refund webhook payload: missing refund or payment identifier');
+      }
+
+      const providerPaymentId = refundEntity.payment_id;
+      const providerRefundId = refundEntity.id;
+      const providerOrderId = paymentEntity?.order_id;
+
+      let payment = await this.prisma.payment.findFirst({
+        where: { providerPaymentId },
+        include: { order: true },
+      });
+
+      if (!payment && providerOrderId) {
+        payment = await this.prisma.payment.findFirst({
+          where: { providerOrderId },
+          include: { order: true },
+        });
+      }
+
+      if (!payment) {
+        this.logger.warn(`Refund webhook received for unknown payment: ${providerPaymentId}`);
+        return { received: true };
+      }
+
+      if (providerOrderId && payment.providerOrderId && providerOrderId !== payment.providerOrderId) {
+        throw new BadRequestException('Refund order ID does not match payment order record');
+      }
+
+      if (refundEntity.currency && refundEntity.currency !== 'INR') {
+        throw new BadRequestException('Refund currency mismatch: expected INR');
+      }
+
+      const refundAmountPaise = Number(refundEntity.amount);
+      const paymentTotalPaise = Math.round(Number(payment.amount) * 100);
+
+      if (isNaN(refundAmountPaise) || refundAmountPaise <= 0 || refundAmountPaise > paymentTotalPaise) {
+        throw new BadRequestException('Invalid refund amount on gateway');
+      }
+
+      // Idempotency check: prevent duplicate counting of the same refund ID
+      const existingPayload = (payment.rawWebhookPayload as any) || {};
+      const processedRefunds: string[] = Array.isArray(existingPayload.processedRefundIds)
+        ? existingPayload.processedRefundIds
+        : (payment.providerRefundId ? [payment.providerRefundId] : []);
+
+      if (processedRefunds.includes(providerRefundId)) {
+        this.logger.log(`Refund webhook already processed for refund ID: ${providerRefundId}`);
+        return { received: true };
+      }
+
+      // Determine cumulative refunded amount (use gateway's amount_refunded when present)
+      let cumulativeRefundedPaise: number;
+      if (paymentEntity?.amount_refunded !== undefined && paymentEntity?.amount_refunded !== null) {
+        cumulativeRefundedPaise = Number(paymentEntity.amount_refunded);
+      } else {
+        const currentRefundedPaise = Math.round(Number(payment.refundedAmount || 0) * 100);
+        cumulativeRefundedPaise = currentRefundedPaise + refundAmountPaise;
+      }
+
+      if (cumulativeRefundedPaise > paymentTotalPaise) {
+        throw new BadRequestException('Cumulative refund amount exceeds payment amount');
+      }
+
+      const isFullRefund = cumulativeRefundedPaise >= paymentTotalPaise;
+      const newRefundedAmountDecimal = cumulativeRefundedPaise / 100;
+      const updatedProcessedRefunds = [...processedRefunds, providerRefundId];
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: isFullRefund ? PaymentStatus.REFUNDED : payment.status,
+            providerRefundId,
+            refundedAmount: newRefundedAmountDecimal,
+            refundedAt: refundEntity.created_at ? new Date(refundEntity.created_at * 1000) : new Date(),
+            rawWebhookPayload: {
+              ...existingPayload,
+              processedRefundIds: updatedProcessedRefunds,
+              lastRefundEvent: payload,
+            },
+          },
+        });
+
+        if (isFullRefund) {
+          await tx.order.update({
+            where: { id: payment.orderId },
+            data: { status: OrderStatus.REFUNDED },
+          });
+        }
+
+        await tx.adminNotification.create({
+          data: {
+            type: 'ORDER_REFUND',
+            title: `Refund Processed for Order #${payment.order.orderNumber}`,
+            message: `Order #${payment.order.orderNumber} ${isFullRefund ? 'fully refunded' : 'partially refunded'} for ₹${(refundAmountPaise / 100).toLocaleString('en-IN')} (Refund ID: ${providerRefundId})`,
+            orderId: payment.order.id,
+            isRead: false,
+          },
+        });
+      });
+    }
+
+    if (event === 'refund.failed') {
+      const refundEntity = payload?.payload?.refund?.entity;
+      if (refundEntity?.payment_id) {
+        const payment = await this.prisma.payment.findFirst({
+          where: { providerPaymentId: refundEntity.payment_id },
+          include: { order: true },
+        });
+
+        if (payment) {
+          this.logger.warn(`Refund ${refundEntity.id} failed for payment ${refundEntity.payment_id}`);
+          await this.prisma.adminNotification.create({
+            data: {
+              type: 'REFUND_FAILED',
+              title: `Refund Failed for Order #${payment.order.orderNumber}`,
+              message: `Refund of ₹${(Number(refundEntity.amount || 0) / 100).toLocaleString('en-IN')} failed on gateway (Refund ID: ${refundEntity.id || '—'})`,
+              orderId: payment.order.id,
+              isRead: false,
+            },
+          });
+        }
+      }
     }
 
     return { received: true };

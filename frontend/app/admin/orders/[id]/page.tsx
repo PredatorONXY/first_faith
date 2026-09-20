@@ -17,7 +17,15 @@ type AdminOrder = {
   user: { fullName?: string | null; email: string; phone?: string | null };
   address: { line1: string; line2?: string | null; city: string; state: string; postalCode: string; country: string; phone?: string | null };
   items: Array<{ id: string; productName: string; variantLabel: string; quantity: number; unitPrice: string; lineTotal: string }>;
-  payment?: { provider: string; status: string } | null;
+  payment?: {
+    provider: string;
+    status: string;
+    providerOrderId?: string | null;
+    providerPaymentId?: string | null;
+    providerRefundId?: string | null;
+    refundedAmount?: string | number | null;
+    refundedAt?: string | null;
+  } | null;
 };
 
 const statuses = ['PENDING', 'PAID', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
@@ -222,6 +230,30 @@ export default function AdminOrderDetailPage() {
             <p><strong style={{ color: 'var(--ff-charcoal)' }}>Payment Method:</strong> {order.paymentMethod}</p>
             <p><strong style={{ color: 'var(--ff-charcoal)' }}>Payment Status:</strong> {order.payment?.status || '—'}</p>
             <p><strong style={{ color: 'var(--ff-charcoal)' }}>Provider:</strong> {order.payment?.provider || 'COD'}</p>
+            {order.payment?.providerPaymentId && (
+              <p><strong style={{ color: 'var(--ff-charcoal)' }}>Payment ID:</strong> {order.payment.providerPaymentId}</p>
+            )}
+            {order.payment?.providerOrderId && (
+              <p><strong style={{ color: 'var(--ff-charcoal)' }}>Order ID:</strong> {order.payment.providerOrderId}</p>
+            )}
+            {order.payment?.refundedAmount && Number(order.payment.refundedAmount) > 0 ? (
+              <div style={{ padding: '0.75rem', background: '#fef2f2', borderRadius: '6px', border: '1px solid #fecaca', marginTop: '0.5rem' }}>
+                <p style={{ fontWeight: 600, color: '#991b1b', margin: 0 }}>Refund Details</p>
+                <p style={{ margin: '0.25rem 0 0', color: '#b91c1c' }}>
+                  Refunded: ₹{Number(order.payment.refundedAmount).toLocaleString('en-IN')}
+                </p>
+                {order.payment.providerRefundId && (
+                  <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: '#7f1d1d' }}>
+                    Refund ID: {order.payment.providerRefundId}
+                  </p>
+                )}
+                {order.payment.refundedAt && (
+                  <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: '#7f1d1d' }}>
+                    Refund Date: {new Date(order.payment.refundedAt).toLocaleString('en-IN')}
+                  </p>
+                )}
+              </div>
+            ) : null}
           </div>
         </aside>
       </div>

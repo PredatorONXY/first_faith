@@ -11,7 +11,7 @@ type Order = {
   grandTotal: string;
   createdAt: string;
   paymentMethod?: string;
-  payment?: { provider: string; status: string } | null;
+  payment?: { provider: string; status: string; refundedAmount?: string | number | null } | null;
   user: { fullName?: string | null; email: string };
 };
 
@@ -134,6 +134,11 @@ export default function AdminOrdersPage() {
                   </td>
                   <td style={{ fontSize: '0.8rem', color: 'var(--ff-charcoal-soft)' }}>
                     {order.payment?.provider || order.paymentMethod || 'COD'} · {order.payment?.status || '—'}
+                    {order.payment?.refundedAmount && Number(order.payment.refundedAmount) > 0 ? (
+                      <span style={{ display: 'block', color: '#b91c1c', fontSize: '0.72rem', fontWeight: 600 }}>
+                        Refunded: ₹{Number(order.payment.refundedAmount).toLocaleString('en-IN')}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="admin-td-status">
                     <span style={{
@@ -143,9 +148,9 @@ export default function AdminOrdersPage() {
                       fontWeight: 700,
                       letterSpacing: '0.04em',
                       borderRadius: '999px',
-                      background: order.status === 'DELIVERED' ? '#ecfdf5' : order.status === 'CANCELLED' ? '#fdf2f2' : order.status === 'SHIPPED' ? '#eff6ff' : '#fef3c7',
-                      color: order.status === 'DELIVERED' ? '#047857' : order.status === 'CANCELLED' ? '#b91c1c' : order.status === 'SHIPPED' ? '#1d4ed8' : '#b45309',
-                      border: `1px solid ${order.status === 'DELIVERED' ? '#a7f3d0' : order.status === 'CANCELLED' ? '#fecaca' : order.status === 'SHIPPED' ? '#bfdbfe' : '#fde68a'}`,
+                      background: order.status === 'DELIVERED' ? '#ecfdf5' : order.status === 'CANCELLED' || order.status === 'REFUNDED' ? '#fdf2f2' : order.status === 'SHIPPED' ? '#eff6ff' : '#fef3c7',
+                      color: order.status === 'DELIVERED' ? '#047857' : order.status === 'CANCELLED' || order.status === 'REFUNDED' ? '#b91c1c' : order.status === 'SHIPPED' ? '#1d4ed8' : '#b45309',
+                      border: `1px solid ${order.status === 'DELIVERED' ? '#a7f3d0' : order.status === 'CANCELLED' || order.status === 'REFUNDED' ? '#fecaca' : order.status === 'SHIPPED' ? '#bfdbfe' : '#fde68a'}`,
                     }}>
                       {order.status}
                     </span>
