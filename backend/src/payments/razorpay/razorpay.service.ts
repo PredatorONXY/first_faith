@@ -23,8 +23,8 @@ export class RazorpayService {
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
   ) {
-    const keyId = this.config.get<string>('RAZORPAY_KEY_ID');
-    const keySecret = this.config.get<string>('RAZORPAY_KEY_SECRET');
+    const keyId = this.config.get<string>('RAZORPAY_KEY_ID')?.trim();
+    const keySecret = this.config.get<string>('RAZORPAY_KEY_SECRET')?.trim();
     if (keyId && keySecret) this.client = new Razorpay({ key_id: keyId, key_secret: keySecret });
   }
 
@@ -51,18 +51,8 @@ export class RazorpayService {
       };
     } catch (err: any) {
       const msg = err?.error?.description || err?.message || 'Razorpay order creation failed';
-      this.logger.warn(`Razorpay orders.create error: ${msg} (status: ${err?.statusCode})`);
-      // In development or when external test credentials return 401 authentication failed,
-      // fallback to simulated order reference to allow testing/verification flow to proceed
-      if (this.config.get<string>('NODE_ENV') !== 'production' || err?.statusCode === 401) {
-        razorpayOrder = {
-          id: `order_${crypto.randomBytes(8).toString('hex')}`,
-          amount: Math.round(Number(order.grandTotal) * 100),
-          currency: 'INR',
-        };
-      } else {
-        throw new BadRequestException(`Payment gateway error: ${msg}`);
-      }
+      this.logger.error(`Razorpay orders.create error for order #${order.orderNumber}: ${msg} (status: ${err?.statusCode})`);
+      throw new BadRequestException(`Payment gateway error: ${msg}`);
     }
 
     await this.prisma.payment.upsert({
@@ -84,12 +74,13 @@ export class RazorpayService {
       razorpayOrderId: razorpayOrder.id,
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
-      keyId: this.config.get<string>('RAZORPAY_KEY_ID'),
+      keyId: this.config.get<string>('RAZORPAY_KEY_ID')?.trim(),
     };
   }
 
   // Client verification endpoint: called by frontend after Razorpay modal completes
   async verifyPayment(dto: VerifyPaymentInput, userId: string) {
+    // STEP 1: Validate the authenticated First Faith order
     const order = await this.prisma.order.findFirst({
       where: { id: dto.orderId, userId },
       include: {
@@ -120,17 +111,18 @@ export class RazorpayService {
       };
     }
 
-    // Validate providerOrderId if one was stored during createPaymentOrder
-    if (payment.providerOrderId && payment.providerOrderId !== dto.razorpayOrderId) {
+    // STEP 2: Verify that the submitted razorpayOrderId exactly matches the Razorpay order ID stored for that First Faith Payment record
+    if (!payment.providerOrderId || payment.providerOrderId !== dto.razorpayOrderId) {
       throw new BadRequestException('Razorpay order ID does not match order payment record');
     }
 
-    const keySecret = this.config.get<string>('RAZORPAY_KEY_SECRET');
-    if (!keySecret) {
+    // STEP 3: Verify the Razorpay signature using:
+    // razorpay_order_id + "|" + razorpay_payment_id and the server-side RAZORPAY_KEY_SECRET
+    const keySecret = this.config.get<string>('RAZORPAY_KEY_SECRET')?.trim();
+    if (!keySecret || !this.client) {
       throw new ServiceUnavailableException('Payment verification not configured');
     }
 
-    // Compute expected HMAC-SHA256 signature
     const expectedSignature = crypto
       .createHmac('sha256', keySecret)
       .update(`${dto.razorpayOrderId}|${dto.razorpayPaymentId}`)
@@ -139,11 +131,11 @@ export class RazorpayService {
     const signatureBuffer = Buffer.from(dto.razorpaySignature, 'utf8');
     const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
 
-    const isValid =
+    const isSignatureValid =
       signatureBuffer.length === expectedBuffer.length &&
       crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
 
-    if (!isValid) {
+    if (!isSignatureValid) {
       await this.prisma.payment.update({
         where: { id: payment.id },
         data: { status: PaymentStatus.FAILED },
@@ -151,7 +143,91 @@ export class RazorpayService {
       throw new BadRequestException('Payment verification failed: Invalid payment signature');
     }
 
-    // Transactionally update payment to CAPTURED and order to PAID
+    // STEP 4: AFTER the signature is valid, make a server-to-server Razorpay API request
+    // using the existing Razorpay SDK/client: payments.fetch(razorpayPaymentId)
+    let razorpayPayment: any;
+    try {
+      razorpayPayment = await this.client.payments.fetch(dto.razorpayPaymentId);
+    } catch (fetchErr: any) {
+      const fetchMsg = fetchErr?.error?.description || fetchErr?.message || 'Payment not found on gateway';
+      this.logger.error(`Razorpay payments.fetch error for payment ${dto.razorpayPaymentId}: ${fetchMsg}`);
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: PaymentStatus.FAILED },
+      });
+      throw new BadRequestException(`Payment gateway verification failed: ${fetchMsg}`);
+    }
+
+    // STEP 5: Verify the returned Razorpay payment:
+    // - payment exists
+    if (!razorpayPayment || !razorpayPayment.id) {
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: PaymentStatus.FAILED },
+      });
+      throw new BadRequestException('Razorpay payment not found on gateway');
+    }
+
+    // - payment belongs to the expected Razorpay order
+    if (razorpayPayment.order_id !== dto.razorpayOrderId) {
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: PaymentStatus.FAILED },
+      });
+      throw new BadRequestException('Razorpay payment does not match expected order');
+    }
+
+    // - payment amount matches the First Faith order amount (calculated server-side from DB)
+    const expectedAmountPaise = Math.round(Number(order.grandTotal) * 100);
+    if (Number(razorpayPayment.amount) !== expectedAmountPaise) {
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: PaymentStatus.FAILED },
+      });
+      throw new BadRequestException('Payment amount mismatch with order total');
+    }
+
+    // - currency matches INR
+    if (razorpayPayment.currency !== 'INR') {
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: PaymentStatus.FAILED },
+      });
+      throw new BadRequestException('Payment currency mismatch: expected INR');
+    }
+
+    // - status is valid for successful payment/capture
+    if (razorpayPayment.status === 'authorized') {
+      try {
+        razorpayPayment = await this.client.payments.capture(
+          dto.razorpayPaymentId,
+          expectedAmountPaise,
+          'INR',
+        );
+      } catch (captureErr: any) {
+        const capMsg = captureErr?.error?.description || captureErr?.message || 'Payment capture failed';
+        this.logger.error(`Razorpay payments.capture error for ${dto.razorpayPaymentId}: ${capMsg}`);
+        await this.prisma.payment.update({
+          where: { id: payment.id },
+          data: { status: PaymentStatus.FAILED },
+        });
+        throw new BadRequestException(`Payment capture failed: ${capMsg}`);
+      }
+    }
+
+    if (razorpayPayment.status !== 'captured') {
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: PaymentStatus.FAILED },
+      });
+      throw new BadRequestException(`Payment not captured on gateway (status: ${razorpayPayment.status})`);
+    }
+
+    // STEP 6: Only after all checks succeed:
+    // - Payment.status = CAPTURED
+    // - Order.status = PAID
+    // - preserve existing transaction/idempotency behavior
+    // - preserve existing admin notification behavior
     await this.prisma.$transaction(async (tx) => {
       await tx.payment.update({
         where: { id: payment.id },
