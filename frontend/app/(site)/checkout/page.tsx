@@ -115,8 +115,10 @@ function loadRazorpayScript(): Promise<boolean> {
     if (window.Razorpay) return resolve(true);
     const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
     if (existingScript) {
+      if (window.Razorpay) return resolve(true);
       existingScript.addEventListener('load', () => resolve(true));
       existingScript.addEventListener('error', () => resolve(false));
+      setTimeout(() => resolve(Boolean(window.Razorpay)), 1500);
       return;
     }
     const script = document.createElement('script');

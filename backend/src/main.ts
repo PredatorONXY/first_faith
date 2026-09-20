@@ -77,18 +77,22 @@ async function bootstrap() {
   });
 
   // 3. CORS Configuration
-  // Unified single-origin deployment allows same-origin requests naturally.
-  if (process.env.FRONTEND_URL) {
-    app.enableCors({
-      origin: process.env.FRONTEND_URL,
-      credentials: true,
-    });
-  } else {
-    app.enableCors({
-      origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
-      credentials: true,
-    });
-  }
+  // Support both local dev ports (3000, 4000) and any configured production FRONTEND_URL
+  const defaultOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:4000',
+    'http://127.0.0.1:4000',
+  ];
+  const configuredOrigin = process.env.FRONTEND_URL?.trim();
+  const allowedOrigins = configuredOrigin
+    ? Array.from(new Set([configuredOrigin, ...defaultOrigins]))
+    : defaultOrigins;
+
+  app.enableCors({
+    origin: allowedOrigins,
+    credentials: true,
+  });
 
   // 4. Global Validation Pipe
   app.useGlobalPipes(
