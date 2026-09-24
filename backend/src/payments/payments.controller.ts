@@ -1,17 +1,25 @@
 import { Controller, Post, Body, Req, Headers, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
-import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { RazorpayService } from './razorpay/razorpay.service';
 
 class CreatePaymentDto {
   @IsUUID()
   orderId!: string;
+
+  @IsOptional()
+  @IsString()
+  guestToken?: string;
 }
 
 export class VerifyPaymentDto {
   @IsUUID()
   orderId!: string;
+
+  @IsOptional()
+  @IsString()
+  guestToken?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -31,15 +39,17 @@ export class PaymentsController {
   constructor(private readonly razorpayService: RazorpayService) {}
 
   @Post('create')
-  @UseGuards(JwtAuthGuard)
-  createPayment(@Body() dto: CreatePaymentDto, @Req() req: Request & { user: { id: string } }) {
-    return this.razorpayService.createPaymentOrder(dto.orderId, req.user.id);
+  @UseGuards(OptionalJwtAuthGuard)
+  createPayment(@Body() dto: CreatePaymentDto, @Req() req: Request) {
+    const user = (req as any)?.user;
+    return this.razorpayService.createPaymentOrder(dto.orderId, dto.guestToken, user?.id);
   }
 
   @Post('verify')
-  @UseGuards(JwtAuthGuard)
-  verifyPayment(@Body() dto: VerifyPaymentDto, @Req() req: Request & { user: { id: string } }) {
-    return this.razorpayService.verifyPayment(dto, req.user.id);
+  @UseGuards(OptionalJwtAuthGuard)
+  verifyPayment(@Body() dto: VerifyPaymentDto, @Req() req: Request) {
+    const user = (req as any)?.user;
+    return this.razorpayService.verifyPayment(dto, user?.id);
   }
 
   // NOTE: this route must be configured in main.ts / a middleware to receive

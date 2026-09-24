@@ -28,11 +28,22 @@ type Profile = {
 type Order = {
   id: string;
   orderNumber: string;
+  guestToken?: string;
   grandTotal?: number;
   status?: string;
 };
 
-type AddressForm = Omit<Address, 'id' | 'label'> & { label: string };
+interface GuestCheckoutForm {
+  fullName: string;
+  email: string;
+  phone: string;
+  line1: string;
+  line2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
 
 type PaymentMethodType = 'RAZORPAY' | 'COD';
 
@@ -98,15 +109,16 @@ declare global {
   }
 }
 
-const emptyAddress: AddressForm = {
-  label: 'Home',
+const emptyForm: GuestCheckoutForm = {
+  fullName: '',
+  email: '',
+  phone: '',
   line1: '',
   line2: '',
   city: '',
   state: '',
   postalCode: '',
   country: 'IN',
-  phone: '',
 };
 
 function loadRazorpayScript(): Promise<boolean> {
@@ -133,14 +145,14 @@ function loadRazorpayScript(): Promise<boolean> {
 export default function CheckoutPage() {
   const router = useRouter();
   const { cart, loading: cartLoading, error: cartError, updateQuantity, removeItem, subtotal, clear: clearCart } = useCart();
-  const [addresses, setAddresses] = useState<Address[]>([]);
-  const [selectedAddress, setSelectedAddress] = useState('');
-  const [form, setForm] = useState<AddressForm>(emptyAddress);
-  const [showForm, setShowForm] = useState(false);
-  const [profile, setProfile] = useState<Profile>({});
-  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState<GuestCheckoutForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Optional saved addresses for authenticated users
+  const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>('');
+  const [useSavedAddress, setUseSavedAddress] = useState(false);
 
   // Payment method & state management
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('RAZORPAY');
@@ -152,68 +164,37 @@ export default function CheckoutPage() {
     orderNumber: string;
     amount: number;
     paymentId?: string;
+    guestToken?: string;
   } | null>(null);
 
+  // If user is already authenticated, prefill profile and check saved addresses
   useEffect(() => {
-    if (!getAccessToken()) {
-      router.replace('/login?next=/checkout');
-      return;
+    if (getAccessToken()) {
+      Promise.all([
+        apiFetch<Address[]>('/auth/addresses').catch(() => [] as Address[]),
+        apiFetch<Profile>('/auth/me').catch(() => null as Profile | null),
+      ]).then(([addresses, profile]) => {
+        if (addresses && addresses.length > 0) {
+          setSavedAddresses(addresses);
+          setSelectedAddressId(addresses[0].id);
+          setUseSavedAddress(true);
+        }
+        if (profile) {
+          setForm((prev) => ({
+            ...prev,
+            fullName: profile.fullName || prev.fullName,
+            email: profile.email || prev.email,
+            phone: profile.phone || prev.phone,
+          }));
+        }
+      });
     }
-    Promise.all([
-      apiFetch<Address[]>('/auth/addresses'),
-      apiFetch<Profile>('/auth/me'),
-    ])
-      .then(([savedAddresses, currentProfile]) => {
-        setAddresses(savedAddresses);
-        setSelectedAddress(savedAddresses[0]?.id ?? '');
-        setProfile(currentProfile);
-      })
-      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Unable to load checkout'))
-      .finally(() => setLoading(false));
-  }, [router]);
+  }, []);
 
   // Preload Razorpay script in background for zero-latency checkout
   useEffect(() => {
     loadRazorpayScript().catch(() => {});
   }, []);
-
-  async function saveAddress() {
-    const requiredFields: Array<keyof AddressForm> = ['line1', 'city', 'state', 'postalCode', 'country', 'phone'];
-    const missingField = requiredFields.find((field) => !(form[field] ?? '').trim());
-    if (missingField) {
-      setError(`Enter your ${missingField === 'postalCode' ? 'PIN / postal code' : missingField}.`);
-      return;
-    }
-    if (form.line1.trim().length < 3 || form.city.trim().length < 2 || form.state.trim().length < 2) {
-      setError('Please enter a complete delivery address.');
-      return;
-    }
-    if (!/^\d{6}$/.test(form.postalCode.trim())) {
-      setError('Enter a valid 6-digit Indian PIN code.');
-      return;
-    }
-    const normalizedPhone = (form.phone ?? '').trim().replace(/[\s-]/g, '').replace(/^\+91/, '').replace(/^91(?=\d{10}$)/, '');
-    if (!/^[6-9]\d{9}$/.test(normalizedPhone)) {
-      setError('Enter a valid 10-digit Indian mobile number.');
-      return;
-    }
-    setSubmitting(true);
-    setError('');
-    try {
-      const address = await apiFetch<Address>('/auth/addresses', {
-        method: 'POST',
-        body: JSON.stringify({ ...form, phone: normalizedPhone, postalCode: form.postalCode.trim(), country: 'IN' }),
-      });
-      setAddresses((current) => [...current, address]);
-      setSelectedAddress(address.id);
-      setShowForm(false);
-      setForm(emptyAddress);
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Unable to save address');
-    } finally {
-      setSubmitting(false);
-    }
-  }
 
   async function changeQuantity(cartItemId: string, quantity: number) {
     setSubmitting(true);
@@ -228,14 +209,81 @@ export default function CheckoutPage() {
     }
   }
 
+  function validateCheckoutData(): boolean {
+    if (useSavedAddress && selectedAddressId) {
+      return true;
+    }
+
+    if (!form.fullName.trim() || form.fullName.trim().length < 2) {
+      setError('Please enter your full name.');
+      return false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!form.email.trim() || !emailRegex.test(form.email.trim())) {
+      setError('Please enter a valid email address for order confirmation.');
+      return false;
+    }
+
+    const normalizedPhone = form.phone.trim().replace(/[\s-]/g, '').replace(/^\+91/, '').replace(/^91(?=\d{10}$)/, '');
+    if (!/^[6-9]\d{9}$/.test(normalizedPhone)) {
+      setError('Enter a valid 10-digit Indian mobile number.');
+      return false;
+    }
+
+    if (!form.line1.trim() || form.line1.trim().length < 3) {
+      setError('Please enter your address (house/flat no, street).');
+      return false;
+    }
+
+    if (!form.city.trim() || form.city.trim().length < 2) {
+      setError('Please enter your city.');
+      return false;
+    }
+
+    if (!form.state.trim() || form.state.trim().length < 2) {
+      setError('Please enter your state.');
+      return false;
+    }
+
+    if (!/^\d{6}$/.test(form.postalCode.trim())) {
+      setError('Enter a valid 6-digit Indian PIN code.');
+      return false;
+    }
+
+    return true;
+  }
+
   async function placeOrder(e: FormEvent) {
     e.preventDefault();
-    if (!selectedAddress) {
-      setError('Choose or add a delivery address.');
+    if (!validateCheckoutData()) {
       return;
     }
+
     setError('');
     setPaymentErrorMessage('');
+
+    const normalizedPhone = form.phone.trim().replace(/[\s-]/g, '').replace(/^\+91/, '').replace(/^91(?=\d{10}$)/, '');
+
+    const orderPayload = useSavedAddress && selectedAddressId
+      ? { addressId: selectedAddressId, paymentMethod }
+      : {
+          customer: {
+            name: form.fullName.trim(),
+            email: form.email.trim().toLowerCase(),
+            phone: normalizedPhone,
+          },
+          shippingAddress: {
+            line1: form.line1.trim(),
+            line2: form.line2.trim() || undefined,
+            city: form.city.trim(),
+            state: form.state.trim(),
+            postalCode: form.postalCode.trim(),
+            country: 'IN',
+            phone: normalizedPhone,
+          },
+          paymentMethod,
+        };
 
     // Flow 1: Cash on Delivery
     if (paymentMethod === 'COD') {
@@ -243,10 +291,11 @@ export default function CheckoutPage() {
       try {
         const order = await apiFetch<Order>('/orders', {
           method: 'POST',
-          body: JSON.stringify({ addressId: selectedAddress, paymentMethod: 'COD' }),
+          body: JSON.stringify(orderPayload),
         });
         clearCart();
-        router.push(`/account/orders/${order.id}`);
+        const tokenQuery = order.guestToken ? `?token=${encodeURIComponent(order.guestToken)}` : '';
+        router.push(`/account/orders/${order.id}${tokenQuery}`);
       } catch (orderError) {
         setError(orderError instanceof Error ? orderError.message : 'Unable to place order');
       } finally {
@@ -260,23 +309,22 @@ export default function CheckoutPage() {
     setPaymentState('CREATING_ORDER');
 
     try {
-      // Step A: Ensure Razorpay SDK script is ready
       const scriptReady = await loadRazorpayScript();
       if (!scriptReady || !window.Razorpay) {
         throw new Error('Payment gateway failed to initialize. Please check your network and try again.');
       }
 
-      // Step B: Create order if not already pending for this checkout attempt
+      // Step A: Create order if not already pending for this checkout session
       let order = pendingOrder;
       if (!order) {
         order = await apiFetch<Order>('/orders', {
           method: 'POST',
-          body: JSON.stringify({ addressId: selectedAddress, paymentMethod: 'RAZORPAY' }),
+          body: JSON.stringify(orderPayload),
         });
         setPendingOrder(order);
       }
 
-      // Step C: Ask backend to create/retrieve Razorpay order
+      // Step B: Ask backend to create Razorpay payment order
       setPaymentState('OPENING_GATEWAY');
       const paymentOrder = await apiFetch<{
         razorpayOrderId: string;
@@ -285,12 +333,13 @@ export default function CheckoutPage() {
         keyId: string;
       }>('/payments/create', {
         method: 'POST',
-        body: JSON.stringify({ orderId: order.id }),
+        body: JSON.stringify({
+          orderId: order.id,
+          guestToken: order.guestToken,
+        }),
       });
 
-      const selectedAddressObj = addresses.find((a) => a.id === selectedAddress);
-
-      // Step D: Open Razorpay checkout modal
+      // Step C: Open Razorpay Checkout modal
       const options: RazorpayCheckoutOptions = {
         key: paymentOrder.keyId,
         amount: paymentOrder.amount,
@@ -309,19 +358,21 @@ export default function CheckoutPage() {
               method: 'POST',
               body: JSON.stringify({
                 orderId: order!.id,
+                guestToken: order!.guestToken,
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpayOrderId: response.razorpay_order_id,
                 razorpaySignature: response.razorpay_signature,
               }),
             });
 
-            // Payment verified and captured successfully
+            // Payment verified and captured successfully on server
             clearCart();
             setCompletedOrder({
               id: order!.id,
               orderNumber: verifyRes.orderNumber || order!.orderNumber,
               amount: subtotal,
               paymentId: response.razorpay_payment_id,
+              guestToken: order!.guestToken,
             });
             setPaymentState('PAYMENT_SUCCESS');
           } catch (verifyErr: unknown) {
@@ -334,9 +385,9 @@ export default function CheckoutPage() {
           }
         },
         prefill: {
-          name: profile.fullName || undefined,
-          email: profile.email || undefined,
-          contact: selectedAddressObj?.phone || profile.phone || undefined,
+          name: form.fullName.trim() || undefined,
+          email: form.email.trim() || undefined,
+          contact: normalizedPhone || undefined,
         },
         notes: {
           orderId: order.id,
@@ -370,7 +421,7 @@ export default function CheckoutPage() {
   }
 
   // Render: Loading Screen
-  if (cartLoading || loading) {
+  if (cartLoading) {
     return (
       <main className="site-shell" style={{ padding: '6rem 0', textAlign: 'center', color: 'var(--ff-charcoal-soft)' }}>
         <p className="eyebrow">Checkout</p>
@@ -381,6 +432,10 @@ export default function CheckoutPage() {
 
   // Render: Payment Success State
   if (paymentState === 'PAYMENT_SUCCESS' && completedOrder) {
+    const confirmationUrl = `/account/orders/${completedOrder.id}${
+      completedOrder.guestToken ? `?token=${encodeURIComponent(completedOrder.guestToken)}` : ''
+    }`;
+
     return (
       <main className="site-shell" style={{ padding: '4rem 1rem 6rem', maxWidth: '640px', margin: '0 auto' }}>
         <div
@@ -457,7 +512,7 @@ export default function CheckoutPage() {
           </div>
 
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Button href={`/account/orders/${completedOrder.id}`} className="btn-primary">
+            <Button href={confirmationUrl} className="btn-primary">
               View Order Details
             </Button>
             <Button href="/shop" variant="outline">
@@ -500,7 +555,7 @@ export default function CheckoutPage() {
   return (
     <main className="site-shell" style={{ padding: '4rem 0 6rem' }}>
       <div style={{ marginBottom: '2.5rem' }}>
-        <p className="eyebrow">Checkout</p>
+        <p className="eyebrow">Guest Checkout</p>
         <h1 className="display-title" style={{ fontSize: 'clamp(2.4rem, 4.5vw, 3.8rem)' }}>
           Complete your ritual.
         </h1>
@@ -555,29 +610,36 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {/* DELIVERY ADDRESS */}
+          {/* CONTACT & SHIPPING DETAILS */}
           <section className="cart-items-panel">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '1rem', borderBottom: '1px solid rgba(32, 28, 27, 0.1)', marginBottom: '1.25rem' }}>
-              <h2 className="section-title" style={{ fontSize: '1.5rem', margin: 0 }}>Delivery address</h2>
-              <button
-                type="button"
-                onClick={() => setShowForm((visible) => !visible)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--ff-burgundy)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
-              >
-                {showForm ? 'Use saved address' : '+ Add new address'}
-              </button>
+            <div style={{ paddingBottom: '1rem', borderBottom: '1px solid rgba(32, 28, 27, 0.1)', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 className="section-title" style={{ fontSize: '1.5rem', margin: 0 }}>Customer & Delivery Information</h2>
+                {savedAddresses.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setUseSavedAddress((v) => !v)}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--ff-burgundy)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    {useSavedAddress ? 'Enter new details' : 'Use saved address'}
+                  </button>
+                )}
+              </div>
+              <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: 'var(--ff-charcoal-soft)' }}>
+                No account required. Please provide your contact details for order tracking and delivery.
+              </p>
             </div>
 
-            {!showForm && addresses.length > 0 && (
+            {useSavedAddress && savedAddresses.length > 0 ? (
               <div style={{ display: 'grid', gap: '0.85rem' }}>
-                {addresses.map((address) => (
+                {savedAddresses.map((address) => (
                   <label
                     key={address.id}
                     style={{
                       display: 'flex',
                       gap: '0.85rem',
-                      border: selectedAddress === address.id ? '1.5px solid var(--ff-burgundy)' : '1px solid rgba(32, 28, 27, 0.12)',
-                      background: selectedAddress === address.id ? 'rgba(238, 216, 207, 0.35)' : 'rgba(255, 255, 255, 0.6)',
+                      border: selectedAddressId === address.id ? '1.5px solid var(--ff-burgundy)' : '1px solid rgba(32, 28, 27, 0.12)',
+                      background: selectedAddressId === address.id ? 'rgba(238, 216, 207, 0.35)' : 'rgba(255, 255, 255, 0.6)',
                       padding: '1.25rem',
                       borderRadius: '12px',
                       cursor: 'pointer',
@@ -586,50 +648,133 @@ export default function CheckoutPage() {
                   >
                     <input
                       type="radio"
-                      name="address"
+                      name="savedAddress"
                       value={address.id}
-                      checked={selectedAddress === address.id}
-                      onChange={() => setSelectedAddress(address.id)}
+                      checked={selectedAddressId === address.id}
+                      onChange={() => setSelectedAddressId(address.id)}
                       style={{ marginTop: '0.2rem', accentColor: 'var(--ff-burgundy)' }}
                     />
                     <span style={{ fontSize: '0.9rem', lineHeight: '1.6', color: 'var(--ff-charcoal)' }}>
-                      <strong>{address.label || 'Address'}</strong><br />
+                      <strong>{address.label || 'Saved Address'}</strong><br />
                       {address.line1}{address.line2 ? `, ${address.line2}` : ''}, {address.city}, {address.state} {address.postalCode}, {address.country}
                       {address.phone ? ` · Tel: ${address.phone}` : ''}
                     </span>
                   </label>
                 ))}
               </div>
-            )}
-
-            {!showForm && addresses.length === 0 && (
-              <p style={{ fontSize: '0.92rem', color: 'var(--ff-charcoal-soft)', margin: '1rem 0' }}>
-                No saved address. Please click &quot;+ Add new address&quot; above to continue.
-              </p>
-            )}
-
-            {showForm && (
-              <div style={{ display: 'grid', gap: '1rem', marginTop: '1rem' }}>
-                {(['label', 'line1', 'line2', 'city', 'state', 'postalCode', 'country', 'phone'] as const).map((field) => (
-                  <div key={field} className="form-group" style={{ margin: 0 }}>
-                    <label htmlFor={field} className="form-label">
-                      {field === 'postalCode' ? 'PIN / postal code' : field}
-                    </label>
+            ) : (
+              <div style={{ display: 'grid', gap: '1.25rem' }}>
+                {/* Contact fields */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label htmlFor="fullName" className="form-label">Full Name *</label>
                     <input
-                      id={field}
-                      required={field !== 'label' && field !== 'line2'}
-                      value={form[field] ?? ''}
-                      onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))}
+                      id="fullName"
+                      required
+                      placeholder="e.g. Priya Sharma"
+                      value={form.fullName}
+                      onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))}
                       className="form-input"
-                      maxLength={field === 'line1' || field === 'line2' ? 160 : field === 'city' || field === 'state' ? 80 : field === 'postalCode' ? 6 : field === 'phone' ? 13 : 50}
-                      inputMode={field === 'postalCode' || field === 'phone' ? 'numeric' : undefined}
+                      maxLength={100}
                     />
                   </div>
-                ))}
-                <div style={{ marginTop: '0.5rem' }}>
-                  <Button type="button" onClick={saveAddress} disabled={submitting}>
-                    Save address
-                  </Button>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label htmlFor="email" className="form-label">Email Address *</label>
+                    <input
+                      id="email"
+                      type="email"
+                      required
+                      placeholder="priya@example.com"
+                      value={form.email}
+                      onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                      className="form-input"
+                      maxLength={120}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label htmlFor="phone" className="form-label">Mobile Number *</label>
+                    <input
+                      id="phone"
+                      type="tel"
+                      required
+                      placeholder="9876543210"
+                      value={form.phone}
+                      onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+                      className="form-input"
+                      maxLength={14}
+                      inputMode="numeric"
+                    />
+                  </div>
+                </div>
+
+                {/* Shipping address fields */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label htmlFor="line1" className="form-label">Street Address / House No. *</label>
+                  <input
+                    id="line1"
+                    required
+                    placeholder="House / Flat No., Apartment / Building Name, Street"
+                    value={form.line1}
+                    onChange={(e) => setForm((prev) => ({ ...prev, line1: e.target.value }))}
+                    className="form-input"
+                    maxLength={160}
+                  />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label htmlFor="line2" className="form-label">Apartment, Suite, Landmark (Optional)</label>
+                  <input
+                    id="line2"
+                    placeholder="Near City Park, Landmark, Floor"
+                    value={form.line2}
+                    onChange={(e) => setForm((prev) => ({ ...prev, line2: e.target.value }))}
+                    className="form-input"
+                    maxLength={160}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label htmlFor="city" className="form-label">City *</label>
+                    <input
+                      id="city"
+                      required
+                      placeholder="Mumbai"
+                      value={form.city}
+                      onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
+                      className="form-input"
+                      maxLength={80}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label htmlFor="state" className="form-label">State *</label>
+                    <input
+                      id="state"
+                      required
+                      placeholder="Maharashtra"
+                      value={form.state}
+                      onChange={(e) => setForm((prev) => ({ ...prev, state: e.target.value }))}
+                      className="form-input"
+                      maxLength={80}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label htmlFor="postalCode" className="form-label">PIN Code *</label>
+                    <input
+                      id="postalCode"
+                      required
+                      placeholder="400001"
+                      value={form.postalCode}
+                      onChange={(e) => setForm((prev) => ({ ...prev, postalCode: e.target.value }))}
+                      className="form-input"
+                      maxLength={6}
+                      inputMode="numeric"
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -803,13 +948,13 @@ export default function CheckoutPage() {
             <Button
               type="submit"
               className="btn-block"
-              disabled={submitting || !selectedAddress || (!pendingOrder && (!cart || cart.items.length === 0))}
+              disabled={submitting || (!pendingOrder && (!cart || cart.items.length === 0))}
             >
               {submitButtonLabel}
             </Button>
           </div>
           <p style={{ marginTop: '0.85rem', fontSize: '0.78rem', color: 'var(--ff-charcoal-soft)', textAlign: 'center' }}>
-            Ordering as {profile.fullName || profile.email || 'your First Faith account'}.
+            Safe &amp; encrypted checkout. 100% genuine skincare products.
           </p>
         </aside>
       </form>

@@ -1,8 +1,6 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
-import { Request } from 'express';
+import { Body, Controller, Delete, Get, Headers, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { IsInt, IsUUID, Min } from 'class-validator';
 import { CartService } from './cart.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 class AddCartItemDto {
   @IsUUID()
@@ -20,30 +18,41 @@ class UpdateCartItemDto {
 }
 
 @Controller('cart')
-@UseGuards(JwtAuthGuard)
 export class CartController {
   constructor(private readonly cartService: CartService) {}
 
   @Get()
-  getCart(@Req() req: Request & { user: { id: string } }) {
-    return this.cartService.getCart(req.user.id);
+  getCart(@Headers('x-cart-session') sessionToken?: string) {
+    return this.cartService.getCart(sessionToken);
   }
 
   @Post('items')
   addItem(
-    @Req() req: Request & { user: { id: string } },
+    @Headers('x-cart-session') sessionToken: string | undefined,
     @Body() dto: AddCartItemDto,
   ) {
-    return this.cartService.addItem(req.user.id, dto.variantId, dto.quantity);
+    return this.cartService.addItem(sessionToken, dto.variantId, dto.quantity);
   }
 
   @Patch('items/:id')
-  updateItem(@Req() req: Request & { user: { id: string } }, @Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateCartItemDto) {
-    return this.cartService.updateItemQuantity(req.user.id, id, dto.quantity);
+  updateItem(
+    @Headers('x-cart-session') sessionToken: string | undefined,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateCartItemDto,
+  ) {
+    return this.cartService.updateItemQuantity(sessionToken, id, dto.quantity);
   }
 
   @Delete('items/:id')
-  removeItem(@Req() req: Request & { user: { id: string } }, @Param('id', new ParseUUIDPipe()) id: string) {
-    return this.cartService.removeItem(req.user.id, id);
+  removeItem(
+    @Headers('x-cart-session') sessionToken: string | undefined,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.cartService.removeItem(sessionToken, id);
+  }
+
+  @Delete()
+  clearCart(@Headers('x-cart-session') sessionToken?: string) {
+    return this.cartService.clearCart(sessionToken);
   }
 }

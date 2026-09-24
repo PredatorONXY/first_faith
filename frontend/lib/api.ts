@@ -20,6 +20,21 @@ export function resolveApiBaseUrl(): string {
 export const API_BASE_URL = resolveApiBaseUrl();
 
 export const ACCESS_TOKEN_KEY = 'first-faith-access-token';
+export const CART_SESSION_KEY = 'first-faith-cart-session';
+
+export function getCartSessionId(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    let id = window.localStorage.getItem(CART_SESSION_KEY);
+    if (!id) {
+      id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `cart_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      window.localStorage.setItem(CART_SESSION_KEY, id);
+    }
+    return id;
+  } catch {
+    return '';
+  }
+}
 
 export function getAccessToken() {
   return typeof window === 'undefined' ? undefined : window.localStorage.getItem(ACCESS_TOKEN_KEY) ?? undefined;
@@ -95,12 +110,15 @@ export async function apiFetch<T>(
   const { next, ...restInit } = init;
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 
+  const cartSession = typeof window !== 'undefined' ? getCartSessionId() : '';
+
   const baseUrl = resolveApiBaseUrl();
   const res = await fetch(`${baseUrl}${normalizedPath}`, {
     ...restInit,
     headers: {
       'Content-Type': 'application/json',
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(cartSession ? { 'x-cart-session': cartSession } : {}),
       ...restInit.headers,
     },
     next: { revalidate: 60, ...(next ?? {}) },

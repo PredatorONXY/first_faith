@@ -74,12 +74,7 @@ export function CartProductActions({
 
       {error && (
         <p style={{ marginTop: '0.45rem', fontSize: '0.78rem', color: 'var(--ff-burgundy)', textAlign: 'center' }} role="alert">
-          {error}{' '}
-          {error.toLowerCase().includes('sign in') && (
-            <Link href="/login" style={{ textDecoration: 'underline', fontWeight: 600, color: 'var(--ff-burgundy)' }}>
-              Sign in
-            </Link>
-          )}
+          {error}
         </p>
       )}
     </div>

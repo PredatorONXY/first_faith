@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useCart } from '../../hooks/useCart';
-import { getAccessToken } from '../../lib/api';
 
 export function AddToCartButton({
   variantId,
@@ -23,10 +22,6 @@ export function AddToCartButton({
   );
 
   async function handleAdd() {
-    if (!getAccessToken()) {
-      setError('Sign in to add products to your cart.');
-      return;
-    }
     if (adding || disabled) return;
     setAdding(true);
     setError('');
@@ -75,12 +70,7 @@ export function AddToCartButton({
 
       {error && (
         <p className="product-detail-error" role="alert">
-          {error}{' '}
-          {error.toLowerCase().includes('sign in') && (
-            <Link href="/login" className="product-detail-error-link">
-              Sign in
-            </Link>
-          )}
+          {error}
         </p>
       )}
     </div>

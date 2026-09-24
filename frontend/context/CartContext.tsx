@@ -46,16 +46,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState('');
 
   const refresh = useCallback(async () => {
-    const token = getAccessToken();
-    if (!token) {
-      setCart(null);
-      try {
-        localStorage.removeItem(CART_CACHE_KEY);
-      } catch {}
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     try {
       const data = await apiFetch<Cart>('/cart', {
@@ -82,9 +72,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addItem = useCallback(async (variantId: string, quantity = 1) => {
-    if (!getAccessToken()) {
-      throw new Error('Please sign in before adding items to your cart');
-    }
     setMutating(true);
     try {
       const nextCart = await apiFetch<Cart>('/cart/items', {
@@ -166,30 +153,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {}
 
-    // Verify and sync with database if user is signed in
-    if (getAccessToken()) {
-      refresh().catch(() => {});
-    } else {
-      setCart(null);
-      try {
-        localStorage.removeItem(CART_CACHE_KEY);
-      } catch {}
-      setLoading(false);
-    }
+    // Verify and sync with database for guest or authenticated visitor
+    refresh().catch(() => {});
 
     const onAuthChanged = () => {
-      if (getAccessToken()) {
-        refresh().catch(() => {});
-      } else {
-        clear();
-        setLoading(false);
-      }
+      refresh().catch(() => {});
     };
 
     const onFocus = () => {
-      if (getAccessToken()) {
-        refresh().catch(() => {});
-      }
+      refresh().catch(() => {});
     };
 
     window.addEventListener('ff:auth-changed', onAuthChanged);
@@ -198,7 +170,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('ff:auth-changed', onAuthChanged);
       window.removeEventListener('focus', onFocus);
     };
-  }, [clear, refresh]);
+  }, [refresh]);
 
   const subtotal = useMemo(() => {
     return cart?.items.reduce((sum, item) => sum + Number(item.variant.price) * item.quantity, 0) ?? 0;

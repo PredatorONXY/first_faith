@@ -5,6 +5,8 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
+
 import { EmailModule } from '../common/email/email.module';
 
 @Global()
@@ -21,7 +23,7 @@ import { EmailModule } from '../common/email/email.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard],
-  exports: [JwtModule, JwtAuthGuard],
+  providers: [AuthService, JwtAuthGuard, OptionalJwtAuthGuard],
+  exports: [JwtModule, JwtAuthGuard, OptionalJwtAuthGuard],
 })
 export class AuthModule {}

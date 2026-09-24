@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch, getAccessToken } from '../../../../lib/api';
 
 type Order = {
@@ -14,10 +14,14 @@ type Order = {
   grandTotal: string;
   paymentMethod: string;
   createdAt: string;
+  guestToken?: string | null;
+  customerName?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
   items: Array<{ id: string; productName: string; variantLabel: string; quantity: number; unitPrice: string; lineTotal: string }>;
   shippingAddress?: { name?: string; line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string; phone?: string } | null;
   address?: { line1: string; line2?: string | null; city: string; state: string; postalCode: string; country: string; phone?: string | null } | null;
-  user?: { fullName?: string | null; email?: string; phone?: string | null };
+  user?: { fullName?: string | null; email?: string; phone?: string | null } | null;
   payment?: { provider: string; status: string; refundedAmount?: string | number | null } | null;
 };
 
@@ -96,6 +100,9 @@ function loadRazorpayScript(): Promise<boolean> {
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const guestToken = searchParams?.get('token');
+
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState('');
   const [retrying, setRetrying] = useState(false);
@@ -106,14 +113,20 @@ export default function OrderDetailPage() {
     if (!params?.id) {
       return;
     }
-    if (!getAccessToken()) {
+    // If not authenticated and no guest token is provided, redirect to login
+    if (!guestToken && !getAccessToken()) {
       router.replace('/login');
       return;
     }
-    apiFetch<Order>(`/orders/${params.id}`, { next: { revalidate: 0 } })
+
+    const orderUrl = guestToken
+      ? `/orders/${params.id}?token=${encodeURIComponent(guestToken)}`
+      : `/orders/${params.id}`;
+
+    apiFetch<Order>(orderUrl, { next: { revalidate: 0 } })
       .then(setOrder)
       .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Unable to load order'));
-  }, [params?.id, router]);
+  }, [params?.id, router, guestToken]);
 
   async function handleRetryPayment() {
     if (!order || retrying) return;
@@ -128,6 +141,8 @@ export default function OrderDetailPage() {
         throw new Error('Payment gateway failed to initialize. Please check your network and try again.');
       }
 
+      const activeGuestToken = guestToken || order.guestToken || undefined;
+
       const paymentOrder = await apiFetch<{
         razorpayOrderId: string;
         amount: number;
@@ -135,7 +150,10 @@ export default function OrderDetailPage() {
         keyId: string;
       }>('/payments/create', {
         method: 'POST',
-        body: JSON.stringify({ orderId: order.id }),
+        body: JSON.stringify({
+          orderId: order.id,
+          guestToken: activeGuestToken,
+        }),
       });
 
       const options: RazorpayCheckoutOptions = {
@@ -151,6 +169,7 @@ export default function OrderDetailPage() {
               method: 'POST',
               body: JSON.stringify({
                 orderId: order.id,
+                guestToken: activeGuestToken,
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpayOrderId: response.razorpay_order_id,
                 razorpaySignature: response.razorpay_signature,
@@ -165,9 +184,9 @@ export default function OrderDetailPage() {
           }
         },
         prefill: {
-          name: order.shippingAddress?.name || order.user?.fullName || undefined,
-          email: order.user?.email || undefined,
-          contact: order.shippingAddress?.phone || order.user?.phone || undefined,
+          name: order.shippingAddress?.name || order.customerName || order.user?.fullName || undefined,
+          email: order.customerEmail || order.user?.email || undefined,
+          contact: order.shippingAddress?.phone || order.customerPhone || order.user?.phone || undefined,
         },
         theme: {
           color: '#7C2836',
@@ -196,7 +215,7 @@ export default function OrderDetailPage() {
   if (!order) return <main className="site-shell" style={{ padding: '6rem 0' }}><p style={{ color: 'var(--ff-charcoal-soft)' }}>Loading order...</p></main>;
 
   const delivery = hasAddress(order.shippingAddress) ? order.shippingAddress : order.address;
-  const recipient = order.shippingAddress?.name || order.user?.fullName || order.user?.email;
+  const recipient = order.shippingAddress?.name || order.customerName || order.user?.fullName || order.customerEmail || order.user?.email;
 
   const isPendingOnline = order.paymentMethod === 'RAZORPAY' && order.status === 'PENDING' && order.payment?.status !== 'CAPTURED';
   const isPaid = order.status === 'PAID' || order.payment?.status === 'CAPTURED';

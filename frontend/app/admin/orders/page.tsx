@@ -10,9 +10,12 @@ type Order = {
   status: string;
   grandTotal: string;
   createdAt: string;
+  customerName?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
   paymentMethod?: string;
   payment?: { provider: string; status: string; refundedAmount?: string | number | null } | null;
-  user: { fullName?: string | null; email: string };
+  user?: { fullName?: string | null; email: string } | null;
 };
 
 export default function AdminOrdersPage() {
@@ -35,10 +38,14 @@ export default function AdminOrdersPage() {
   }, []);
 
   const filteredOrders = orders.filter((order) => {
+    const customerEmail = (order.customerEmail || order.user?.email || '').toLowerCase();
+    const customerName = (order.customerName || order.user?.fullName || '').toLowerCase();
+    const searchLower = search.toLowerCase();
+
     const matchesSearch =
-      order.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
-      order.user.email.toLowerCase().includes(search.toLowerCase()) ||
-      (order.user.fullName && order.user.fullName.toLowerCase().includes(search.toLowerCase()));
+      order.orderNumber.toLowerCase().includes(searchLower) ||
+      customerEmail.includes(searchLower) ||
+      customerName.includes(searchLower);
 
     const matchesStatus = statusFilter === 'ALL' || order.status === statusFilter;
 
@@ -120,10 +127,10 @@ export default function AdminOrdersPage() {
                   </td>
                   <td className="admin-td-customer">
                     <p style={{ fontWeight: 600, color: 'var(--ff-charcoal)', margin: 0 }}>
-                      {order.user.fullName || 'Customer'}
+                      {order.customerName || order.user?.fullName || 'Guest Customer'}
                     </p>
                     <p style={{ fontSize: '0.75rem', color: 'var(--ff-charcoal-soft)', margin: '0.15rem 0 0' }}>
-                      {order.user.email}
+                      {order.customerEmail || order.user?.email || '—'}
                     </p>
                   </td>
                   <td className="admin-td-date">

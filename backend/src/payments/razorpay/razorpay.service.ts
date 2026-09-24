@@ -8,6 +8,7 @@ import { OrderStatus, PaymentStatus } from '@prisma/client';
 
 export interface VerifyPaymentInput {
   orderId: string;
+  guestToken?: string;
   razorpayPaymentId: string;
   razorpayOrderId: string;
   razorpaySignature: string;
@@ -31,13 +32,40 @@ export class RazorpayService {
   // Step 1 of the flow: backend creates a Razorpay order for an existing
   // First Faith order and records the provider reference. The amount is
   // read from our own DB record, never from the client request body.
-  async createPaymentOrder(orderId: string, userId: string) {
+  async createPaymentOrder(
+    orderIdOrDto: string | { orderId: string; guestToken?: string },
+    guestTokenOrUserId?: string,
+    maybeUserId?: string,
+  ) {
     if (!this.client) throw new ServiceUnavailableException('Online payments are not configured');
-    const order = await this.prisma.order.findFirst({
-      where: { id: orderId, userId },
-      include: { payment: true },
-    });
+
+    const orderId = typeof orderIdOrDto === 'object' ? orderIdOrDto.orderId : orderIdOrDto;
+    const guestToken = typeof orderIdOrDto === 'object' ? orderIdOrDto.guestToken : (maybeUserId ? guestTokenOrUserId : undefined);
+    const userId = maybeUserId || (typeof orderIdOrDto !== 'object' && !maybeUserId ? guestTokenOrUserId : undefined);
+
+    let order = userId
+      ? await this.prisma.order.findFirst({
+          where: { id: orderId, userId },
+          include: { payment: true },
+        })
+      : null;
+
+    if (!order && guestToken) {
+      order = await this.prisma.order.findFirst({
+        where: { id: orderId, guestToken },
+        include: { payment: true },
+      });
+    }
+
+    if (!order && !userId && guestTokenOrUserId) {
+      order = await this.prisma.order.findFirst({
+        where: { id: orderId, guestToken: guestTokenOrUserId },
+        include: { payment: true },
+      });
+    }
+
     if (!order) throw new BadRequestException('Order not found');
+
     if (order.paymentMethod !== 'RAZORPAY') throw new BadRequestException('This order does not use online payment');
 
     // 1. Guard against paying already paid, refunded, or cancelled orders
@@ -107,15 +135,28 @@ export class RazorpayService {
   }
 
   // Client verification endpoint: called by frontend after Razorpay modal completes
-  async verifyPayment(dto: VerifyPaymentInput, userId: string) {
-    // STEP 1: Validate the authenticated First Faith order
-    const order = await this.prisma.order.findFirst({
-      where: { id: dto.orderId, userId },
-      include: {
-        user: { select: { fullName: true, email: true } },
-        items: true,
-      },
-    });
+  async verifyPayment(dto: VerifyPaymentInput, userId?: string) {
+    // STEP 1: Validate the First Faith order and ownership
+    const targetUserId = userId || dto.guestToken;
+    let order = targetUserId
+      ? await this.prisma.order.findFirst({
+          where: { id: dto.orderId, userId: targetUserId },
+          include: {
+            user: { select: { fullName: true, email: true } },
+            items: true,
+          },
+        })
+      : null;
+
+    if (!order && dto.guestToken) {
+      order = await this.prisma.order.findFirst({
+        where: { id: dto.orderId, guestToken: dto.guestToken },
+        include: {
+          user: { select: { fullName: true, email: true } },
+          items: true,
+        },
+      });
+    }
 
     if (!order) {
       throw new NotFoundException('Order not found');
@@ -278,11 +319,12 @@ export class RazorpayService {
         data: { status: OrderStatus.PAID },
       });
 
+      const customerDisplayName = order.customerName || order.user?.fullName || order.customerEmail || order.user?.email || 'Customer';
       await tx.adminNotification.create({
         data: {
           type: 'NEW_ORDER',
           title: `New Paid Order #${order.orderNumber}`,
-          message: `Order #${order.orderNumber} paid via Razorpay by ${order.user?.fullName || order.user?.email || 'Customer'} for ₹${Number(order.grandTotal).toLocaleString('en-IN')}`,
+          message: `Order #${order.orderNumber} paid via Razorpay by ${customerDisplayName} for ₹${Number(order.grandTotal).toLocaleString('en-IN')}`,
           orderId: order.id,
           isRead: false,
         },
@@ -296,8 +338,8 @@ export class RazorpayService {
         .sendAdminNewOrderEmail({
           orderId: order.id,
           orderNumber: order.orderNumber,
-          customerName: order.user?.fullName || null,
-          customerEmail: order.user?.email || '',
+          customerName: order.customerName || order.user?.fullName || null,
+          customerEmail: order.customerEmail || order.user?.email || '',
           orderDate: order.createdAt || new Date(),
           itemCount,
           totalAmount: Number(order.grandTotal),

@@ -14,8 +14,21 @@ type AdminOrder = {
   discountTotal: string;
   paymentMethod: string;
   createdAt: string;
-  user: { fullName?: string | null; email: string; phone?: string | null };
-  address: { line1: string; line2?: string | null; city: string; state: string; postalCode: string; country: string; phone?: string | null };
+  customerName?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+  shippingAddress?: {
+    name?: string;
+    line1?: string;
+    line2?: string | null;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    phone?: string | null;
+  } | null;
+  user?: { fullName?: string | null; email: string; phone?: string | null } | null;
+  address?: { line1: string; line2?: string | null; city: string; state: string; postalCode: string; country: string; phone?: string | null } | null;
   items: Array<{ id: string; productName: string; variantLabel: string; quantity: number; unitPrice: string; lineTotal: string }>;
   payment?: {
     provider: string;
@@ -134,21 +147,37 @@ export default function AdminOrderDetailPage() {
             <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', fontSize: '0.875rem', color: 'var(--ff-charcoal)' }}>
               <div>
                 <p className="eyebrow" style={{ fontSize: '0.7rem' }}>Customer</p>
-                <p style={{ marginTop: '0.25rem', fontWeight: 600 }}>{order.user.fullName || 'Unnamed'}</p>
-                <p style={{ color: 'var(--ff-charcoal-soft)', margin: '0.15rem 0 0' }}>{order.user.email}</p>
-                <p style={{ color: 'var(--ff-charcoal-soft)', margin: '0.15rem 0 0' }}>{order.user.phone || 'No phone recorded'}</p>
+                <p style={{ marginTop: '0.25rem', fontWeight: 600 }}>{order.customerName || order.user?.fullName || 'Guest Customer'}</p>
+                <p style={{ color: 'var(--ff-charcoal-soft)', margin: '0.15rem 0 0' }}>{order.customerEmail || order.user?.email || '—'}</p>
+                <p style={{ color: 'var(--ff-charcoal-soft)', margin: '0.15rem 0 0' }}>{order.customerPhone || order.user?.phone || 'No phone recorded'}</p>
               </div>
               <div>
                 <p className="eyebrow" style={{ fontSize: '0.7rem' }}>Shipping Address</p>
-                <p style={{ marginTop: '0.25rem', lineHeight: 1.6 }}>
-                  {order.address.line1}
-                  {order.address.line2 && <><br />{order.address.line2}</>}
-                  <br />
-                  {order.address.city}, {order.address.state} {order.address.postalCode}
-                  <br />
-                  {order.address.country}
-                  {order.address.phone ? ` · Tel: ${order.address.phone}` : ''}
-                </p>
+                {order.shippingAddress?.line1 ? (
+                  <p style={{ marginTop: '0.25rem', lineHeight: 1.6 }}>
+                    {order.shippingAddress.line1}
+                    {order.shippingAddress.line2 && <><br />{order.shippingAddress.line2}</>}
+                    <br />
+                    {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.postalCode}
+                    <br />
+                    {order.shippingAddress.country || 'IN'}
+                    {order.shippingAddress.phone ? ` · Tel: ${order.shippingAddress.phone}` : ''}
+                  </p>
+                ) : order.address?.line1 ? (
+                  <p style={{ marginTop: '0.25rem', lineHeight: 1.6 }}>
+                    {order.address.line1}
+                    {order.address.line2 && <><br />{order.address.line2}</>}
+                    <br />
+                    {order.address.city}, {order.address.state} {order.address.postalCode}
+                    <br />
+                    {order.address.country}
+                    {order.address.phone ? ` · Tel: ${order.address.phone}` : ''}
+                  </p>
+                ) : (
+                  <p style={{ marginTop: '0.25rem', color: 'var(--ff-charcoal-soft)' }}>
+                    No delivery address recorded.
+                  </p>
+                )}
               </div>
             </div>
           </div>

@@ -83,12 +83,14 @@ export function Header() {
         </nav>
 
         <div className="header-actions">
-          <Link
-            href="/account"
-            className={`header-action-link ${currentPath.startsWith('/account') ? 'is-active' : ''}`}
-          >
-            {signedIn ? 'My account' : 'Account'}
-          </Link>
+          {signedIn && (
+            <Link
+              href="/account"
+              className={`header-action-link ${currentPath.startsWith('/account') ? 'is-active' : ''}`}
+            >
+              My account
+            </Link>
+          )}
           <Link
             href="/cart"
             className={`header-action-link ${currentPath.startsWith('/cart') ? 'is-active' : ''}`}
@@ -123,9 +125,11 @@ export function Header() {
               {link.label}
             </Link>
           ))}
-          <Link href="/account" className="mobile-link" onClick={() => setMenuOpen(false)}>
-            {signedIn ? 'My account' : 'Account'}
-          </Link>
+          {signedIn && (
+            <Link href="/account" className="mobile-link" onClick={() => setMenuOpen(false)}>
+              My account
+            </Link>
+          )}
           <Link href="/cart" className="mobile-link" onClick={() => setMenuOpen(false)}>
             Cart {cartCount > 0 && <span className="cart-count-badge">{cartCount}</span>}
           </Link>

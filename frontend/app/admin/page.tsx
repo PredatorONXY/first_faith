@@ -11,7 +11,7 @@ type DashboardData = {
   completedOrders: number;
   products: number;
   lowStock: Array<{ stockQuantity: number; variant: { sku: string; product: { name: string } } }>;
-  recentOrders?: Array<{ id: string; orderNumber: string; grandTotal: string; status: string; createdAt: string; user?: { fullName?: string | null; email: string } }>;
+  recentOrders?: Array<{ id: string; orderNumber: string; grandTotal: string; status: string; createdAt: string; customerName?: string | null; customerEmail?: string | null; user?: { fullName?: string | null; email: string } }>;
 };
 
 export default function AdminDashboardPage() {
@@ -147,7 +147,7 @@ export default function AdminDashboardPage() {
                       {order.orderNumber}
                     </Link>
                     <p style={{ fontSize: '0.75rem', color: 'var(--ff-charcoal-soft)', margin: '0.15rem 0 0' }}>
-                      {order.user?.fullName || order.user?.email || 'Customer'} · {new Date(order.createdAt).toLocaleDateString('en-IN')}
+                      {order.customerName || order.user?.fullName || order.customerEmail || order.user?.email || 'Guest Customer'} · {new Date(order.createdAt).toLocaleDateString('en-IN')}
                     </p>
                   </div>
                   <div style={{ textAlign: 'right' }}>

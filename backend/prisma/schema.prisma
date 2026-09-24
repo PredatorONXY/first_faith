@@ -186,8 +186,12 @@ model CartItem {
 model Order {
   id              String          @id @default(uuid())
   orderNumber     String          @unique
-  userId          String
-  addressId       String
+  userId          String?
+  guestToken      String?         @unique
+  customerEmail   String?
+  customerName    String?
+  customerPhone   String?
+  addressId       String?
   status          OrderStatus     @default(PENDING)
   subtotal        Decimal         @db.Decimal(10, 2)
   discountTotal   Decimal         @default(0) @db.Decimal(10, 2)
@@ -199,14 +203,15 @@ model Order {
   updatedAt       DateTime        @updatedAt
   paymentMethod   PaymentProvider @default(COD)
   shippingAddress Json?
-  address         Address         @relation(fields: [addressId], references: [id])
+  address         Address?        @relation(fields: [addressId], references: [id])
   coupon          Coupon?         @relation(fields: [couponId], references: [id])
-  user            User            @relation(fields: [userId], references: [id])
+  user            User?           @relation(fields: [userId], references: [id])
   items           OrderItem[]
   payment         Payment?
 
   @@index([userId])
   @@index([status])
+  @@index([guestToken])
 }
 
 model OrderItem {
