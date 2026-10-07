@@ -144,7 +144,7 @@ function loadRazorpayScript(): Promise<boolean> {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, loading: cartLoading, error: cartError, updateQuantity, removeItem, subtotal, clear: clearCart } = useCart();
+  const { cart, loading: cartLoading, error: cartError, updateQuantity, removeItem, subtotal, discountTotal, grandTotal, promotion, clear: clearCart } = useCart();
   const [form, setForm] = useState<GuestCheckoutForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -370,7 +370,7 @@ export default function CheckoutPage() {
             setCompletedOrder({
               id: order!.id,
               orderNumber: verifyRes.orderNumber || order!.orderNumber,
-              amount: subtotal,
+              amount: grandTotal,
               paymentId: response.razorpay_payment_id,
               guestToken: order!.guestToken,
             });
@@ -540,14 +540,14 @@ export default function CheckoutPage() {
   }
 
   // Determine submit button label based on payment method and state
-  let submitButtonLabel = `Place order · ₹${subtotal.toLocaleString('en-IN')}`;
+  let submitButtonLabel = `Place order · ₹${grandTotal.toLocaleString('en-IN')}`;
   if (paymentMethod === 'RAZORPAY') {
     if (paymentState === 'CREATING_ORDER') submitButtonLabel = 'Preparing secure order...';
     else if (paymentState === 'OPENING_GATEWAY') submitButtonLabel = 'Connecting to Razorpay...';
     else if (paymentState === 'PROCESSING_PAYMENT') submitButtonLabel = 'Verifying payment...';
-    else if (paymentState === 'PAYMENT_CANCELLED') submitButtonLabel = `Resume payment · ₹${subtotal.toLocaleString('en-IN')}`;
-    else if (paymentState === 'PAYMENT_FAILED') submitButtonLabel = `Retry payment · ₹${subtotal.toLocaleString('en-IN')}`;
-    else submitButtonLabel = `Pay online · ₹${subtotal.toLocaleString('en-IN')}`;
+    else if (paymentState === 'PAYMENT_CANCELLED') submitButtonLabel = `Resume payment · ₹${grandTotal.toLocaleString('en-IN')}`;
+    else if (paymentState === 'PAYMENT_FAILED') submitButtonLabel = `Retry payment · ₹${grandTotal.toLocaleString('en-IN')}`;
+    else submitButtonLabel = `Pay online · ₹${grandTotal.toLocaleString('en-IN')}`;
   } else if (submitting) {
     submitButtonLabel = 'Placing order...';
   }
@@ -887,46 +887,89 @@ export default function CheckoutPage() {
           </h2>
 
           <div style={{ display: 'grid', gap: '1rem' }}>
-            {cart?.items.map((item) => (
-              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.85rem', fontSize: '0.88rem' }}>
-                <div>
-                  <p style={{ margin: 0, fontWeight: 500, color: 'var(--ff-charcoal)' }}>
-                    {item.variant.product.name} × {item.quantity}
-                  </p>
-                  <p style={{ margin: '0.2rem 0 0', fontSize: '0.78rem', color: 'var(--ff-charcoal-soft)' }}>
-                    ₹{Number(item.variant.price).toLocaleString('en-IN')} each
-                  </p>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--ff-burgundy)' }}>
-                    ₹{(Number(item.variant.price) * item.quantity).toLocaleString('en-IN')}
-                  </span>
-                  <div className="cart-qty-bar" style={{ padding: 0 }}>
-                    <button
-                      type="button"
-                      aria-label="Decrease quantity"
-                      onClick={() => changeQuantity(item.id, item.quantity - 1)}
-                      disabled={submitting}
-                      className="cart-qty-btn"
-                      style={{ padding: '0.2rem 0.55rem', fontSize: '0.9rem' }}
-                    >
-                      −
-                    </button>
-                    <span style={{ fontSize: '0.78rem', padding: '0 0.2rem' }}>{item.quantity}</span>
-                    <button
-                      type="button"
-                      aria-label="Increase quantity"
-                      onClick={() => changeQuantity(item.id, item.quantity + 1)}
-                      disabled={submitting || item.quantity >= (item.variant.inventory?.stockQuantity ?? item.quantity)}
-                      className="cart-qty-btn"
-                      style={{ padding: '0.2rem 0.55rem', fontSize: '0.9rem' }}
-                    >
-                      +
-                    </button>
+            {cart?.items.map((item) => {
+              const itemPromo = promotion?.itemDiscounts?.[item.variantId];
+              const isFree = Boolean(itemPromo?.isFreeItem);
+              const freeQty = itemPromo?.freeQuantity || 0;
+              const allUnitsFree = isFree && freeQty >= item.quantity;
+
+              return (
+                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.85rem', fontSize: '0.88rem' }}>
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 500, color: 'var(--ff-charcoal)' }}>
+                      {item.variant.product.name} × {item.quantity}
+                    </p>
+                    <p style={{ margin: '0.2rem 0 0', fontSize: '0.78rem', color: 'var(--ff-charcoal-soft)' }}>
+                      ₹{Number(item.variant.price).toLocaleString('en-IN')} each
+                    </p>
+                    {isFree && (
+                      <span style={{
+                        display: 'inline-block',
+                        marginTop: '0.2rem',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        color: '#047857',
+                        background: '#ecfdf5',
+                        border: '1px solid #a7f3d0',
+                        borderRadius: '4px',
+                        padding: '0.1rem 0.45rem',
+                      }}>
+                        1+1 FREE
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                    {allUnitsFree ? (
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ textDecoration: 'line-through', fontSize: '0.75rem', color: 'var(--ff-charcoal-soft)', display: 'block' }}>
+                          ₹{(Number(item.variant.price) * item.quantity).toLocaleString('en-IN')}
+                        </span>
+                        <span style={{ fontWeight: 700, color: '#047857' }}>
+                          FREE (₹0)
+                        </span>
+                      </div>
+                    ) : isFree ? (
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--ff-burgundy)' }}>
+                          ₹{(Number(item.variant.price) * (item.quantity - freeQty)).toLocaleString('en-IN')}
+                        </span>
+                        <span style={{ display: 'block', fontSize: '0.72rem', color: '#047857', fontWeight: 600 }}>
+                          FREE × {freeQty}
+                        </span>
+                      </div>
+                    ) : (
+                      <span style={{ fontWeight: 600, color: 'var(--ff-burgundy)' }}>
+                        ₹{(Number(item.variant.price) * item.quantity).toLocaleString('en-IN')}
+                      </span>
+                    )}
+
+                    <div className="cart-qty-bar" style={{ padding: 0 }}>
+                      <button
+                        type="button"
+                        aria-label="Decrease quantity"
+                        onClick={() => changeQuantity(item.id, item.quantity - 1)}
+                        disabled={submitting}
+                        className="cart-qty-btn"
+                        style={{ padding: '0.2rem 0.55rem', fontSize: '0.9rem' }}
+                      >
+                        −
+                      </button>
+                      <span style={{ fontSize: '0.78rem', padding: '0 0.2rem' }}>{item.quantity}</span>
+                      <button
+                        type="button"
+                        aria-label="Increase quantity"
+                        onClick={() => changeQuantity(item.id, item.quantity + 1)}
+                        disabled={submitting || item.quantity >= (item.variant.inventory?.stockQuantity ?? item.quantity)}
+                        className="cart-qty-btn"
+                        style={{ padding: '0.2rem 0.55rem', fontSize: '0.9rem' }}
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(32, 28, 27, 0.1)' }}>
@@ -934,13 +977,19 @@ export default function CheckoutPage() {
               <span>Subtotal</span>
               <strong>₹{subtotal.toLocaleString('en-IN')}</strong>
             </div>
+            {discountTotal > 0 && (
+              <div className="summary-row" style={{ color: '#047857' }}>
+                <span style={{ fontWeight: 600 }}>1+1 Offer Discount</span>
+                <strong style={{ color: '#047857' }}>-₹{discountTotal.toLocaleString('en-IN')}</strong>
+              </div>
+            )}
             <div className="summary-row muted">
               <span>Shipping</span>
               <strong style={{ color: 'var(--ff-success)' }}>FREE</strong>
             </div>
-            <div className="summary-row" style={{ paddingTop: '1rem' }}>
-              <span style={{ fontWeight: 600 }}>Total</span>
-              <strong style={{ fontSize: '1.4rem' }}>₹{subtotal.toLocaleString('en-IN')}</strong>
+            <div className="summary-row" style={{ paddingTop: '1rem', borderTop: '1px solid rgba(32, 28, 27, 0.1)', marginTop: '0.5rem' }}>
+              <span style={{ fontWeight: 700 }}>Total</span>
+              <strong style={{ fontSize: '1.4rem', color: 'var(--ff-burgundy)' }}>₹{grandTotal.toLocaleString('en-IN')}</strong>
             </div>
           </div>
 

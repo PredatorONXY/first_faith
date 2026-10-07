@@ -12,13 +12,36 @@ type Order = {
   discountTotal: string;
   shippingFee: string;
   grandTotal: string;
+  promotionName?: string | null;
+  promotionDiscount?: string | number | null;
+  promotionDetails?: {
+    promotionId?: string;
+    promotionName?: string;
+    appliedOffers?: Array<{
+      offerName?: string;
+      buyProductName: string;
+      buyQuantity: number;
+      freeProductName: string;
+      freeQuantity: number;
+      discount: number;
+    }>;
+  } | null;
   paymentMethod: string;
   createdAt: string;
   guestToken?: string | null;
   customerName?: string | null;
   customerEmail?: string | null;
   customerPhone?: string | null;
-  items: Array<{ id: string; productName: string; variantLabel: string; quantity: number; unitPrice: string; lineTotal: string }>;
+  items: Array<{
+    id: string;
+    productName: string;
+    variantLabel: string;
+    quantity: number;
+    unitPrice: string;
+    lineTotal: string;
+    isFreeItem?: boolean;
+    freeQuantity?: number;
+  }>;
   shippingAddress?: { name?: string; line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string; phone?: string } | null;
   address?: { line1: string; line2?: string | null; city: string; state: string; postalCode: string; country: string; phone?: string | null } | null;
   user?: { fullName?: string | null; email?: string; phone?: string | null } | null;
@@ -282,15 +305,67 @@ export default function OrderDetailPage() {
         <div className="order-detail-grid" style={{ marginTop: '2.5rem' }}>
           <section className="order-detail-panel">
             <h2>Items</h2>
+
+            {order.promotionName && (
+              <div style={{
+                background: '#FAF4F0',
+                border: '1px solid rgba(124, 40, 54, 0.15)',
+                borderRadius: '10px',
+                padding: '0.75rem 1rem',
+                marginBottom: '1rem',
+              }}>
+                <strong style={{ color: '#7C2836', fontSize: '0.85rem' }}>🎁 {order.promotionName}</strong>
+                <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: '#047857', fontWeight: 600 }}>
+                  Promotional discount: -₹{Number(order.discountTotal).toLocaleString('en-IN')}
+                </p>
+              </div>
+            )}
+
             <div className="order-detail-items">
               {order.items.map((item) => (
                 <div key={item.id}>
-                  <span>{item.productName} · {item.variantLabel} × {item.quantity}</span>
-                  <span>₹{Number(item.lineTotal).toLocaleString('en-IN')}</span>
+                  <div>
+                    <span>{item.productName} · {item.variantLabel} × {item.quantity}</span>
+                    {item.isFreeItem && (
+                      <span style={{
+                        background: '#ecfdf5',
+                        color: '#047857',
+                        padding: '0.15rem 0.45rem',
+                        borderRadius: '4px',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        marginLeft: '0.5rem',
+                        border: '1px solid #a7f3d0',
+                      }}>
+                        1+1 FREE
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    {item.isFreeItem && (item.freeQuantity === undefined || item.freeQuantity === item.quantity) ? (
+                      <span style={{ color: '#047857', fontWeight: 700 }}>FREE (₹0)</span>
+                    ) : (
+                      <span>₹{Number(item.lineTotal).toLocaleString('en-IN')}</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
-            <div className="order-detail-total">
+
+            <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--ff-stone)', display: 'grid', gap: '0.35rem', fontSize: '0.88rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--ff-charcoal-soft)' }}>
+                <span>Subtotal</span>
+                <span>₹{Number(order.subtotal).toLocaleString('en-IN')}</span>
+              </div>
+              {Number(order.discountTotal) > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#047857', fontWeight: 600 }}>
+                  <span>1+1 Offer Discount</span>
+                  <span>-₹{Number(order.discountTotal).toLocaleString('en-IN')}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="order-detail-total" style={{ borderTop: '1px solid rgba(32, 28, 27, 0.1)', marginTop: '0.5rem', paddingTop: '0.75rem' }}>
               <span>Total</span>
               <strong>₹{Number(order.grandTotal).toLocaleString('en-IN')}</strong>
             </div>

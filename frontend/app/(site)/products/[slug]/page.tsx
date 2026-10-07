@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { getProductBySlug } from '../../../../services/products';
 import { AddToCartButton } from '../../../../components/product/AddToCartButton';
@@ -6,6 +7,7 @@ import { ProductImageGallery } from '../../../../components/product/ProductImage
 import { HeroIngredientCards } from '../../../../components/product/HeroIngredientCards';
 import { getProductContent } from '../../../../lib/productContent';
 import { getProductGalleryImages } from '../../../../lib/productImages';
+import { getProductPromotionOffer } from '../../../../lib/promotions';
 import { ProductReviews } from '../../../../components/product/ProductReviews';
 
 interface Props {
@@ -51,6 +53,7 @@ export default async function ProductPage({ params }: Props) {
     ? content.heroIngredients
     : product.ingredients.filter((item) => item.role === 'HERO').map((item) => item.ingredient.name);
   const price = variant ? Number(variant.price).toLocaleString('en-IN') : null;
+  const promoOffer = getProductPromotionOffer(product.slug);
 
   return (
     <main className="site-shell" style={{ padding: '3.5rem 0 5rem' }}>
@@ -70,6 +73,38 @@ export default async function ProductPage({ params }: Props) {
               <span className="product-size-pill">{variant.sizeLabel || content.sizeLabel}</span>
             )}
           </div>
+
+          {promoOffer && (
+            <div className="product-promo-highlight-card">
+              <div className="product-promo-highlight-header">
+                <span className="brand-pill product-promo-badge">1+1 SPECIAL OFFER</span>
+                <span className="product-promo-free-tag">COMPLIMENTARY ESSENTIAL</span>
+              </div>
+              <div className="product-promo-highlight-content">
+                {promoOffer.pairImage && (
+                  <div className="product-promo-duo-thumb">
+                    <Image
+                      src={promoOffer.pairImage}
+                      alt={`${promoOffer.buyName} & ${promoOffer.freeName} 1+1 Offer`}
+                      width={100}
+                      height={100}
+                      className="product-promo-duo-img"
+                    />
+                  </div>
+                )}
+                <div className="product-promo-text">
+                  <p className="product-promo-pairing">
+                    <span className="product-promo-buy-label">BUY:</span> {promoOffer.buyName}
+                    <br />
+                    <span className="product-promo-get-label">GET FREE:</span> {promoOffer.freeName} (₹0)
+                  </p>
+                  <p className="product-promo-note">
+                    ✓ Companion essential is automatically added to your bag at ₹0 upon adding this item.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {content.shortDescription && (
             <p style={{ marginTop: '1.25rem', color: 'var(--ff-charcoal-soft)', lineHeight: 1.75, fontSize: '1rem' }}>

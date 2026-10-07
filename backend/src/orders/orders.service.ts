@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { OrderStatus, PaymentProvider, PaymentStatus } from '@prisma/client';
+import { OrderStatus, PaymentProvider, PaymentStatus, Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../common/prisma.service';
 import { EmailService } from '../common/email/email.service';
+import { PromotionEngine } from '../common/promotions/promotion.engine';
 
 @Injectable()
 export class OrdersService {
@@ -114,7 +115,7 @@ export class OrdersService {
       throw new BadRequestException('Customer and shipping address are required for checkout');
     }
 
-    // 3. Validate Items & Stock
+    // 3. Validate Items & Stock (both BUY and FREE promotional items)
     for (const item of cart.items) {
       if (!item.variant.isActive || item.variant.product.status !== 'PUBLISHED') {
         throw new BadRequestException(`${item.variant.product.name} is no longer available`);
@@ -124,9 +125,10 @@ export class OrdersService {
       }
     }
 
-    // 4. Calculate Server-side Totals
-    const subtotal = cart.items.reduce((sum, item) => sum + Number(item.variant.price) * item.quantity, 0);
-    let discountTotal = 0;
+    // 4. Calculate Server-side Totals with Authoritative 1+1 Skincare Offer Engine
+    const promotion = PromotionEngine.calculatePromotion(cart.items);
+    const subtotal = promotion.subtotal;
+    let discountTotal = promotion.discountTotal;
     let couponId: string | undefined;
 
     if (couponCode) {
@@ -135,17 +137,21 @@ export class OrdersService {
       if (!coupon || !coupon.isActive || (coupon.startsAt && coupon.startsAt > now) || (coupon.expiresAt && coupon.expiresAt < now)) {
         throw new BadRequestException('Coupon is not valid');
       }
-      if (coupon.minOrderValue && subtotal < Number(coupon.minOrderValue)) {
+      const availableSubtotal = Math.max(subtotal - promotion.discountTotal, 0);
+      if (coupon.minOrderValue && availableSubtotal < Number(coupon.minOrderValue)) {
         throw new BadRequestException('Cart does not meet the coupon minimum');
       }
       const totalUsage = await this.prisma.couponUsage.count({ where: { couponId: coupon.id } });
       if (coupon.usageLimit !== null && totalUsage >= coupon.usageLimit) {
         throw new BadRequestException('Coupon usage limit reached');
       }
-      discountTotal = Math.min(
-        coupon.discountType === 'PERCENTAGE' ? (subtotal * Number(coupon.discountValue)) / 100 : Number(coupon.discountValue),
-        subtotal,
+      const couponDiscount = Math.min(
+        coupon.discountType === 'PERCENTAGE'
+          ? (availableSubtotal * Number(coupon.discountValue)) / 100
+          : Number(coupon.discountValue),
+        availableSubtotal,
       );
+      discountTotal += couponDiscount;
       couponId = coupon.id;
     }
 
@@ -169,23 +175,41 @@ export class OrdersService {
           discountTotal,
           shippingFee,
           grandTotal,
+          promotionName: promotion.isActive ? promotion.promotionName : null,
+          promotionDiscount: promotion.discountTotal,
+          promotionDetails: promotion.isActive
+            ? ({
+                promotionId: promotion.promotionId,
+                promotionName: promotion.promotionName,
+                appliedOffers: promotion.appliedOffers,
+                discountTotal: promotion.discountTotal,
+              } as unknown as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
           paymentMethod,
           shippingAddress: finalShippingAddress,
           couponId,
           items: {
-            create: cart.items.map((item) => ({
-              variantId: item.variantId,
-              productName: item.variant.product.name,
-              variantLabel: item.variant.sizeLabel,
-              unitPrice: item.variant.price,
-              quantity: item.quantity,
-              lineTotal: Number(item.variant.price) * item.quantity,
-            })),
+            create: cart.items.map((item) => {
+              const itemPromo = promotion.itemDiscounts[item.variantId];
+              const isFree = Boolean(itemPromo?.isFreeItem);
+              const freeQuantity = itemPromo?.freeQuantity || 0;
+              return {
+                variantId: item.variantId,
+                productName: item.variant.product.name,
+                variantLabel: item.variant.sizeLabel,
+                unitPrice: item.variant.price,
+                quantity: item.quantity,
+                lineTotal: Number(item.variant.price) * item.quantity,
+                isFreeItem: isFree,
+                freeQuantity,
+              };
+            }),
           },
         },
         include: { items: true },
       });
 
+      // Atomically decrement stock for all items (both qualifying and free items)
       for (const item of cart.items) {
         const updated = await tx.inventory.updateMany({
           where: { variantId: item.variantId, stockQuantity: { gte: item.quantity } },
@@ -213,7 +237,7 @@ export class OrdersService {
           data: {
             type: 'NEW_ORDER',
             title: `New Order #${createdOrder.orderNumber}`,
-            message: `Order #${createdOrder.orderNumber} placed by ${customerName || 'Guest Customer'} for ₹${Number(createdOrder.grandTotal).toLocaleString('en-IN')} (COD)`,
+            message: `Order #${createdOrder.orderNumber} placed by ${customerName || 'Guest Customer'} for ₹${Number(createdOrder.grandTotal).toLocaleString('en-IN')} (COD)${createdOrder.promotionName ? ' [1+1 Offer]' : ''}`,
             orderId: createdOrder.id,
             isRead: false,
           },
@@ -223,24 +247,52 @@ export class OrdersService {
       }
 
       try {
-        const itemCount = cart.items.reduce((sum, it) => sum + it.quantity, 0);
+        const orderItemsList = (createdOrder as any).items || cart.items.map((item) => {
+          const itemPromo = promotion.itemDiscounts[item.variantId];
+          const isFree = Boolean(itemPromo?.isFreeItem);
+          return {
+            productName: item.variant.product.name,
+            variantLabel: item.variant.sizeLabel,
+            quantity: item.quantity,
+            unitPrice: Number(item.variant.price),
+            lineTotal: Number(item.variant.price) * item.quantity,
+            isFreeItem: isFree,
+          };
+        });
+
+        const itemCount = orderItemsList.reduce((sum: number, it: any) => sum + it.quantity, 0);
         this.emailService
           .sendAdminNewOrderEmail({
             orderId: createdOrder.id,
             orderNumber: createdOrder.orderNumber,
             customerName: customerName || null,
             customerEmail: customerEmail || '',
+            customerPhone: customerPhone || null,
+            shippingAddress: finalShippingAddress as any,
+            paymentMethod,
             orderDate: new Date(),
             itemCount,
+            items: orderItemsList.map((it: any) => ({
+              productName: it.productName,
+              variantLabel: it.variantLabel,
+              quantity: it.quantity,
+              unitPrice: Number(it.unitPrice),
+              lineTotal: Number(it.lineTotal),
+              isFreeItem: it.isFreeItem,
+            })),
+            promotionName: createdOrder.promotionName,
+            promotionDiscount: Number(createdOrder.promotionDiscount || 0),
+            appliedOffers: (createdOrder.promotionDetails as any)?.appliedOffers,
+            subtotal: Number(createdOrder.subtotal),
             totalAmount: Number(createdOrder.grandTotal),
             paymentStatus: PaymentStatus.CREATED,
             orderStatus: createdOrder.status,
           })
           .catch((err) => {
-            this.logger.error(`Non-blocking admin alert email error for #${createdOrder.orderNumber}: ${err.message}`);
+            this.logger.error(`[EMAIL] Admin COD notification failed: ${err.message}`);
           });
       } catch (emailErr: any) {
-        this.logger.error(`Failed to trigger admin order alert email: ${emailErr.message}`);
+        this.logger.error(`[EMAIL] Admin COD notification failed: ${emailErr.message}`);
       }
     }
 

@@ -11,15 +11,54 @@ export interface CartItem {
   variant: {
     id: string;
     sizeLabel: string;
-    price: string;
+    price: string | number;
     inventory?: { stockQuantity: number } | null;
     product: { name: string; slug?: string };
   };
 }
 
+export interface CartPromotionOffer {
+  offerId: string;
+  offerName: string;
+  buyProductSlug: string;
+  buyProductName: string;
+  buyQuantity: number;
+  freeProductSlug: string;
+  freeProductName: string;
+  freeQuantity: number;
+  unitPrice: number;
+  discount: number;
+}
+
+export interface CartPromotionData {
+  id: string;
+  name: string;
+  isActive: boolean;
+  discountTotal: number;
+  appliedOffers: CartPromotionOffer[];
+  itemDiscounts?: Record<string, {
+    freeQuantity: number;
+    isFreeItem: boolean;
+    discountAmount: number;
+    unitPrice: number;
+  }>;
+  missingFreeItems?: Array<{
+    offerId: string;
+    buyProductSlug: string;
+    buyProductName: string;
+    freeProductSlug: string;
+    freeProductName: string;
+    quantityEligible: number;
+  }>;
+}
+
 export interface Cart {
   id: string;
   items: CartItem[];
+  subtotal?: number;
+  discountTotal?: number;
+  grandTotal?: number;
+  promotion?: CartPromotionData;
 }
 
 interface CartContextType {
@@ -28,6 +67,9 @@ interface CartContextType {
   mutating: boolean;
   error: string;
   subtotal: number;
+  discountTotal: number;
+  grandTotal: number;
+  promotion: CartPromotionData | null;
   addItem: (variantId: string, quantity?: number) => Promise<Cart>;
   updateQuantity: (cartItemId: string, quantity: number) => Promise<Cart>;
   removeItem: (cartItemId: string) => Promise<Cart>;
@@ -173,7 +215,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   const subtotal = useMemo(() => {
-    return cart?.items.reduce((sum, item) => sum + Number(item.variant.price) * item.quantity, 0) ?? 0;
+    return cart?.subtotal ?? (cart?.items.reduce((sum, item) => sum + Number(item.variant.price) * item.quantity, 0) ?? 0);
+  }, [cart]);
+
+  const discountTotal = useMemo(() => {
+    return cart?.discountTotal ?? (cart?.promotion?.discountTotal ?? 0);
+  }, [cart]);
+
+  const grandTotal = useMemo(() => {
+    return cart?.grandTotal ?? Math.max(subtotal - discountTotal, 0);
+  }, [cart, subtotal, discountTotal]);
+
+  const promotion = useMemo(() => {
+    return cart?.promotion ?? null;
   }, [cart]);
 
   const value = useMemo(
@@ -183,13 +237,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       mutating,
       error,
       subtotal,
+      discountTotal,
+      grandTotal,
+      promotion,
       addItem,
       updateQuantity,
       removeItem,
       refresh,
       clear,
     }),
-    [cart, loading, mutating, error, subtotal, addItem, updateQuantity, removeItem, refresh, clear],
+    [cart, loading, mutating, error, subtotal, discountTotal, grandTotal, promotion, addItem, updateQuantity, removeItem, refresh, clear],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

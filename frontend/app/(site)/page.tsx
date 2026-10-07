@@ -94,6 +94,22 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* 3. 1+1 SKINCARE SPECIAL OFFER (SUBTLE STRIP) */}
+      <section className="promo-subtle-strip">
+        <div className="site-shell promo-subtle-inner">
+          <div className="promo-subtle-text">
+            <span className="brand-pill promo-subtle-pill">Special Skincare Offer</span>
+            <h2 className="promo-subtle-title">1+1 SKINCARE SPECIAL OFFER</h2>
+            <p className="promo-subtle-desc">
+              BUY 1 GET 1 FREE · Selected pairs receive a complimentary full-size companion ritual at ₹0 in your bag.
+            </p>
+          </div>
+          <Button href="/shop" variant="outline" className="promo-subtle-btn">
+            Shop 1+1 Offer →
+          </Button>
+        </div>
+      </section>
+
       {/* 3. STORY BAND / PHILOSOPHY */}
       <section className="story-band">
         <div className="site-shell story-layout">

@@ -40,8 +40,8 @@ export class RazorpayService {
     if (!this.client) throw new ServiceUnavailableException('Online payments are not configured');
 
     const orderId = typeof orderIdOrDto === 'object' ? orderIdOrDto.orderId : orderIdOrDto;
-    const guestToken = typeof orderIdOrDto === 'object' ? orderIdOrDto.guestToken : (maybeUserId ? guestTokenOrUserId : undefined);
-    const userId = maybeUserId || (typeof orderIdOrDto !== 'object' && !maybeUserId ? guestTokenOrUserId : undefined);
+    const guestToken = typeof orderIdOrDto === 'object' ? orderIdOrDto.guestToken : guestTokenOrUserId;
+    const userId = maybeUserId;
 
     let order = userId
       ? await this.prisma.order.findFirst({
@@ -57,9 +57,9 @@ export class RazorpayService {
       });
     }
 
-    if (!order && !userId && guestTokenOrUserId) {
+    if (!order && guestTokenOrUserId) {
       order = await this.prisma.order.findFirst({
-        where: { id: orderId, guestToken: guestTokenOrUserId },
+        where: { id: orderId, userId: guestTokenOrUserId },
         include: { payment: true },
       });
     }
@@ -333,15 +333,29 @@ export class RazorpayService {
 
     // Send admin email notification (async, non-blocking)
     try {
-      const itemCount = order.items.reduce((sum, it) => sum + it.quantity, 0);
+      const orderItems = Array.isArray(order.items) ? order.items : [];
+      const itemCount = orderItems.reduce((sum, it) => sum + (it.quantity || 1), 0);
       this.emailService
         .sendAdminNewOrderEmail({
           orderId: order.id,
           orderNumber: order.orderNumber,
           customerName: order.customerName || order.user?.fullName || null,
           customerEmail: order.customerEmail || order.user?.email || '',
+          customerPhone: order.customerPhone || null,
           orderDate: order.createdAt || new Date(),
           itemCount,
+          items: orderItems.map((it) => ({
+            productName: it.productName,
+            variantLabel: it.variantLabel,
+            quantity: it.quantity,
+            unitPrice: Number(it.unitPrice),
+            lineTotal: Number(it.lineTotal),
+            isFreeItem: it.isFreeItem,
+          })),
+          promotionName: order.promotionName,
+          promotionDiscount: Number(order.promotionDiscount || 0),
+          appliedOffers: (order.promotionDetails as any)?.appliedOffers,
+          subtotal: Number(order.subtotal),
           totalAmount: Number(order.grandTotal),
           paymentStatus: PaymentStatus.CAPTURED,
           orderStatus: OrderStatus.PAID,
@@ -438,15 +452,29 @@ export class RazorpayService {
       });
 
       try {
-        const itemCount = updatedOrder.items.reduce((sum, it) => sum + it.quantity, 0);
+        const webhookItems = Array.isArray(updatedOrder.items) ? updatedOrder.items : [];
+        const itemCount = webhookItems.reduce((sum, it) => sum + (it.quantity || 1), 0);
         this.emailService
           .sendAdminNewOrderEmail({
             orderId: updatedOrder.id,
             orderNumber: updatedOrder.orderNumber,
-            customerName: updatedOrder.user?.fullName || null,
-            customerEmail: updatedOrder.user?.email || '',
+            customerName: updatedOrder.customerName || updatedOrder.user?.fullName || null,
+            customerEmail: updatedOrder.customerEmail || updatedOrder.user?.email || '',
+            customerPhone: updatedOrder.customerPhone || null,
             orderDate: updatedOrder.createdAt || new Date(),
             itemCount,
+            items: webhookItems.map((it) => ({
+              productName: it.productName,
+              variantLabel: it.variantLabel,
+              quantity: it.quantity,
+              unitPrice: Number(it.unitPrice),
+              lineTotal: Number(it.lineTotal),
+              isFreeItem: it.isFreeItem,
+            })),
+            promotionName: updatedOrder.promotionName,
+            promotionDiscount: Number(updatedOrder.promotionDiscount || 0),
+            appliedOffers: (updatedOrder.promotionDetails as any)?.appliedOffers,
+            subtotal: Number(updatedOrder.subtotal),
             totalAmount: Number(updatedOrder.grandTotal),
             paymentStatus: PaymentStatus.CAPTURED,
             orderStatus: OrderStatus.PAID,

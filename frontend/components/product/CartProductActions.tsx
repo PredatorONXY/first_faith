@@ -44,7 +44,7 @@ export function CartProductActions({
           className="cart-add-btn"
           aria-label={pending ? 'Adding to cart' : 'Add to cart'}
         >
-          {pending ? 'Adding...' : 'Add to cart'}
+          {pending ? 'ADDING...' : 'ADD TO CART'}
         </button>
       ) : (
         <>
@@ -56,7 +56,7 @@ export function CartProductActions({
             aria-label="Added to cart"
             title="Click to add another to cart"
           >
-            {pending ? 'Adding...' : 'Added to cart'}
+            {pending ? 'ADDING...' : 'ADDED ✓'}
           </button>
           <Link
             href="/cart"

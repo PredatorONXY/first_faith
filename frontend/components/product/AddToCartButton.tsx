@@ -44,7 +44,7 @@ export function AddToCartButton({
           className="product-detail-btn product-detail-add-btn"
           aria-label={adding ? 'Adding to cart' : 'Add to cart'}
         >
-          {adding ? 'Adding...' : 'Add to cart'}
+          {adding ? 'ADDING...' : 'ADD TO CART'}
         </button>
       ) : (
         <div className="product-detail-btn-stack">
@@ -56,7 +56,7 @@ export function AddToCartButton({
             aria-label="Added to cart"
             title="Click to add another to cart"
           >
-            {adding ? 'Adding...' : 'Added to cart'}
+            {adding ? 'ADDING...' : 'ADDED ✓'}
           </button>
           <Link
             href="/cart"

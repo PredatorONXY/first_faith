@@ -16,6 +16,8 @@ type Order = {
   paymentMethod?: string;
   payment?: { provider: string; status: string; refundedAmount?: string | number | null } | null;
   user?: { fullName?: string | null; email: string } | null;
+  promotionName?: string | null;
+  promotionDiscount?: string | number | null;
 };
 
 export default function AdminOrdersPage() {
@@ -124,6 +126,11 @@ export default function AdminOrdersPage() {
                     <Link href={`/admin/orders/${order.id}`} className="admin-btn-text" style={{ padding: 0 }}>
                       {order.orderNumber}
                     </Link>
+                    {order.promotionName && (
+                      <span style={{ display: 'inline-block', fontSize: '0.65rem', fontWeight: 700, padding: '1px 5px', borderRadius: '3px', background: 'rgba(124, 40, 54, 0.08)', color: '#7C2836', border: '1px solid rgba(124, 40, 54, 0.2)', marginTop: '3px' }}>
+                        1+1 OFFER
+                      </span>
+                    )}
                   </td>
                   <td className="admin-td-customer">
                     <p style={{ fontWeight: 600, color: 'var(--ff-charcoal)', margin: 0 }}>

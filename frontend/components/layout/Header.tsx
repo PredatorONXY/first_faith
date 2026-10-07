@@ -80,6 +80,13 @@ export function Header() {
               {link.label}
             </Link>
           ))}
+          <Link
+            href="/shop"
+            className="nav-promo-pill"
+            aria-label="1+1 Skincare Offer"
+          >
+            1+1 OFFER
+          </Link>
         </nav>
 
         <div className="header-actions">
@@ -125,6 +132,13 @@ export function Header() {
               {link.label}
             </Link>
           ))}
+          <Link
+            href="/shop"
+            className="mobile-link mobile-promo-item"
+            onClick={() => setMenuOpen(false)}
+          >
+            🎁 1+1 Skincare Offer
+          </Link>
           {signedIn && (
             <Link href="/account" className="mobile-link" onClick={() => setMenuOpen(false)}>
               My account

@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { getPrimaryProductImage } from '../../lib/productImages';
 import { getProductContent } from '../../lib/productContent';
+import { getProductPromotionOffer } from '../../lib/promotions';
 import { Product } from '../../types/product';
 import { CartProductActions } from './CartProductActions';
 
@@ -17,12 +18,17 @@ export function ProductCard({ product }: { product: Product }) {
   const displayTagline = product.tagline || content?.tagline || product.shortDescription || content?.shortDescription;
   const displaySize = variant?.sizeLabel || content?.sizeLabel;
   const price = variant ? Number(variant.price).toLocaleString('en-IN') : null;
+  const promoOffer = getProductPromotionOffer(product.slug);
 
   return (
     <article className="product-card">
       <Link href={`/products/${product.slug}`} className="product-card-media-link" aria-label={`View ${displayName}`}>
         <div className="product-card-image-wrap">
-          <span className="product-card-badge">Essential</span>
+          {promoOffer ? (
+            <span className="product-card-badge product-card-badge-offer">1+1 OFFER</span>
+          ) : (
+            <span className="product-card-badge">Essential</span>
+          )}
           {image ? (
             <Image
               src={image.src}
@@ -48,6 +54,16 @@ export function ProductCard({ product }: { product: Product }) {
           </h3>
           {displayTagline && (
             <p className="product-card-tagline">{displayTagline}</p>
+          )}
+          {promoOffer && (
+            <div className="product-card-promo-strip">
+              <span className="product-card-promo-label">1+1 OFFER</span>
+              <p className="product-card-promo-pairing">
+                <span>BUY: {promoOffer.buyName}</span>
+                <span className="product-card-promo-sep">·</span>
+                <span className="product-card-promo-free">GET {promoOffer.freeName} FREE</span>
+              </p>
+            </div>
           )}
         </div>
 

@@ -4,6 +4,7 @@ import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { getSiteSettings } from '../services/settings';
 import { CartProvider } from '../context/CartContext';
+import { OfferPopup } from '../components/promotions/OfferPopup';
 
 export const metadata: Metadata = {
   title: {
@@ -26,6 +27,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en">
       <body>
         <CartProvider>
+          <OfferPopup />
           <Header />
           <main>{children}</main>
           <Footer settings={settings} />
