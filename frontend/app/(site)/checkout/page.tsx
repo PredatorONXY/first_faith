@@ -1,10 +1,10 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { apiFetch, getAccessToken } from '../../../lib/api';
 import { useCart } from '../../../hooks/useCart';
 import { Button } from '../../../components/ui/Button';
+import { calculateFrontendTax } from '../../../lib/tax';
 
 type Address = {
   id: string;
@@ -45,7 +45,7 @@ interface GuestCheckoutForm {
   country: string;
 }
 
-type PaymentMethodType = 'RAZORPAY' | 'COD';
+type PaymentMethodType = 'RAZORPAY';
 
 type PaymentStatusState =
   | 'IDLE'
@@ -143,8 +143,7 @@ function loadRazorpayScript(): Promise<boolean> {
 }
 
 export default function CheckoutPage() {
-  const router = useRouter();
-  const { cart, loading: cartLoading, error: cartError, updateQuantity, removeItem, subtotal, discountTotal, grandTotal, promotion, clear: clearCart } = useCart();
+  const { cart, loading: cartLoading, error: cartError, updateQuantity, removeItem, promotion, clear: clearCart } = useCart();
   const [form, setForm] = useState<GuestCheckoutForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -154,8 +153,7 @@ export default function CheckoutPage() {
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [useSavedAddress, setUseSavedAddress] = useState(false);
 
-  // Payment method & state management
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('RAZORPAY');
+  const paymentMethod: PaymentMethodType = 'RAZORPAY';
   const [paymentState, setPaymentState] = useState<PaymentStatusState>('IDLE');
   const [paymentErrorMessage, setPaymentErrorMessage] = useState('');
   const [pendingOrder, setPendingOrder] = useState<Order | null>(null);
@@ -166,6 +164,31 @@ export default function CheckoutPage() {
     paymentId?: string;
     guestToken?: string;
   } | null>(null);
+
+  // Determine active delivery state from address selection or guest input
+  const selectedSavedAddress = savedAddresses.find((a) => a.id === selectedAddressId);
+  const deliveryState = (useSavedAddress && selectedSavedAddress ? selectedSavedAddress.state : form.state) || '';
+
+  const checkoutTax = useMemo(() => {
+    const taxItems = (cart?.items || []).map((item) => {
+      const itemPromo = promotion?.itemDiscounts?.[item.variantId];
+      return {
+        variantId: item.variantId,
+        unitPrice: item.variant.price,
+        quantity: item.quantity,
+        discount: itemPromo?.discountAmount || 0,
+        isFree: Boolean(itemPromo?.isFreeItem),
+      };
+    });
+
+    return calculateFrontendTax({
+      items: taxItems,
+      shippingState: deliveryState,
+      shippingFee: 0,
+    });
+  }, [cart?.items, promotion?.itemDiscounts, deliveryState]);
+
+  const activeGrandTotal = pendingOrder?.grandTotal ? Number(pendingOrder.grandTotal) : checkoutTax.grandTotal;
 
   // If user is already authenticated, prefill profile and check saved addresses
   useEffect(() => {
@@ -285,26 +308,7 @@ export default function CheckoutPage() {
           paymentMethod,
         };
 
-    // Flow 1: Cash on Delivery
-    if (paymentMethod === 'COD') {
-      setSubmitting(true);
-      try {
-        const order = await apiFetch<Order>('/orders', {
-          method: 'POST',
-          body: JSON.stringify(orderPayload),
-        });
-        clearCart();
-        const tokenQuery = order.guestToken ? `?token=${encodeURIComponent(order.guestToken)}` : '';
-        router.push(`/account/orders/${order.id}${tokenQuery}`);
-      } catch (orderError) {
-        setError(orderError instanceof Error ? orderError.message : 'Unable to place order');
-      } finally {
-        setSubmitting(false);
-      }
-      return;
-    }
-
-    // Flow 2: Razorpay Online Payment
+    // Online Payment via Razorpay
     setSubmitting(true);
     setPaymentState('CREATING_ORDER');
 
@@ -370,7 +374,7 @@ export default function CheckoutPage() {
             setCompletedOrder({
               id: order!.id,
               orderNumber: verifyRes.orderNumber || order!.orderNumber,
-              amount: grandTotal,
+              amount: Number(order!.grandTotal || activeGrandTotal),
               paymentId: response.razorpay_payment_id,
               guestToken: order!.guestToken,
             });
@@ -539,17 +543,20 @@ export default function CheckoutPage() {
     );
   }
 
-  // Determine submit button label based on payment method and state
-  let submitButtonLabel = `Place order · ₹${grandTotal.toLocaleString('en-IN')}`;
-  if (paymentMethod === 'RAZORPAY') {
-    if (paymentState === 'CREATING_ORDER') submitButtonLabel = 'Preparing secure order...';
-    else if (paymentState === 'OPENING_GATEWAY') submitButtonLabel = 'Connecting to Razorpay...';
-    else if (paymentState === 'PROCESSING_PAYMENT') submitButtonLabel = 'Verifying payment...';
-    else if (paymentState === 'PAYMENT_CANCELLED') submitButtonLabel = `Resume payment · ₹${grandTotal.toLocaleString('en-IN')}`;
-    else if (paymentState === 'PAYMENT_FAILED') submitButtonLabel = `Retry payment · ₹${grandTotal.toLocaleString('en-IN')}`;
-    else submitButtonLabel = `Pay online · ₹${grandTotal.toLocaleString('en-IN')}`;
+  // Determine submit button label based on payment state
+  let submitButtonLabel = `Pay online · ₹${activeGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (paymentState === 'CREATING_ORDER') {
+    submitButtonLabel = 'Preparing secure order...';
+  } else if (paymentState === 'OPENING_GATEWAY') {
+    submitButtonLabel = 'Connecting to Razorpay...';
+  } else if (paymentState === 'PROCESSING_PAYMENT') {
+    submitButtonLabel = 'Verifying payment...';
+  } else if (paymentState === 'PAYMENT_CANCELLED') {
+    submitButtonLabel = `Resume payment · ₹${activeGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  } else if (paymentState === 'PAYMENT_FAILED') {
+    submitButtonLabel = `Retry payment · ₹${activeGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   } else if (submitting) {
-    submitButtonLabel = 'Placing order...';
+    submitButtonLabel = 'Processing...';
   }
 
   return (
@@ -581,7 +588,7 @@ export default function CheckoutPage() {
               <div style={{ fontSize: '0.88rem', color: 'var(--ff-charcoal)' }}>
                 <strong>Payment modal closed before completion.</strong>
                 <p style={{ margin: '0.25rem 0 0', color: 'var(--ff-charcoal-soft)', lineHeight: 1.5 }}>
-                  Your items are reserved under {pendingOrder ? `Order #${pendingOrder.orderNumber}` : 'your order'}. You can click &quot;Resume payment&quot; below to pay securely via Razorpay or choose Cash on Delivery.
+                  Your items are reserved under {pendingOrder ? `Order #${pendingOrder.orderNumber}` : 'your order'}. You can click &quot;Resume payment&quot; below to complete your payment securely via Razorpay.
                 </p>
               </div>
             </div>
@@ -604,7 +611,7 @@ export default function CheckoutPage() {
               <div style={{ fontSize: '0.88rem', color: 'var(--ff-charcoal)' }}>
                 <strong style={{ color: '#c92a2a' }}>Payment could not be completed.</strong>
                 <p style={{ margin: '0.25rem 0 0', color: 'var(--ff-charcoal-soft)', lineHeight: 1.5 }}>
-                  {paymentErrorMessage || 'The transaction was declined by your bank or payment gateway. No money was charged. Please retry or choose another payment method.'}
+                  {paymentErrorMessage || 'The transaction was declined by your bank or payment gateway. No money was charged. Please retry payment.'}
                 </p>
               </div>
             </div>
@@ -787,89 +794,58 @@ export default function CheckoutPage() {
                 Payment method
               </h2>
               <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: 'var(--ff-charcoal-soft)' }}>
-                Choose your preferred payment method. Transactions are encrypted and secure.
+                All transactions are encrypted and processed securely via Razorpay.
               </p>
             </div>
 
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              {/* Option 1: Razorpay Online */}
-              <label
+            <div
+              style={{
+                display: 'flex',
+                gap: '1.1rem',
+                border: '1.5px solid var(--ff-burgundy)',
+                background: 'rgba(238, 216, 207, 0.35)',
+                padding: '1.35rem',
+                borderRadius: '14px',
+                alignItems: 'flex-start',
+              }}
+            >
+              <div
                 style={{
+                  marginTop: '0.15rem',
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  background: 'var(--ff-burgundy)',
+                  color: '#fff',
                   display: 'flex',
-                  gap: '1rem',
-                  border: paymentMethod === 'RAZORPAY' ? '1.5px solid var(--ff-burgundy)' : '1px solid rgba(32, 28, 27, 0.12)',
-                  background: paymentMethod === 'RAZORPAY' ? 'rgba(238, 216, 207, 0.35)' : 'rgba(255, 255, 255, 0.6)',
-                  padding: '1.25rem',
-                  borderRadius: '14px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
                 }}
               >
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="RAZORPAY"
-                  checked={paymentMethod === 'RAZORPAY'}
-                  onChange={() => {
-                    setPaymentMethod('RAZORPAY');
-                    setError('');
-                  }}
-                  style={{ marginTop: '0.25rem', accentColor: 'var(--ff-burgundy)' }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <strong style={{ fontSize: '0.95rem', color: 'var(--ff-charcoal)' }}>
-                      Pay online via Razorpay
-                    </strong>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 600, background: 'rgba(124, 40, 54, 0.08)', color: 'var(--ff-burgundy)', padding: '0.2rem 0.6rem', borderRadius: '20px' }}>
-                      Recommended
-                    </span>
-                  </div>
-                  <p style={{ margin: '0.35rem 0 0.6rem', color: 'var(--ff-charcoal-soft)', fontSize: '0.84rem', lineHeight: 1.5 }}>
-                    Instant confirmation with Cards (Visa, Mastercard, RuPay), UPI (Google Pay, PhonePe, Paytm), NetBanking &amp; Wallets.
-                  </p>
-                  <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', fontSize: '0.72rem', color: 'var(--ff-charcoal-soft)' }}>
-                    <span style={{ background: 'rgba(32, 28, 27, 0.06)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontWeight: 500 }}>UPI</span>
-                    <span style={{ background: 'rgba(32, 28, 27, 0.06)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontWeight: 500 }}>Credit / Debit Cards</span>
-                    <span style={{ background: 'rgba(32, 28, 27, 0.06)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontWeight: 500 }}>NetBanking</span>
-                    <span style={{ background: 'rgba(32, 28, 27, 0.06)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontWeight: 500 }}>256-Bit SSL</span>
-                  </div>
-                </div>
-              </label>
-
-              {/* Option 2: COD */}
-              <label
-                style={{
-                  display: 'flex',
-                  gap: '1rem',
-                  border: paymentMethod === 'COD' ? '1.5px solid var(--ff-burgundy)' : '1px solid rgba(32, 28, 27, 0.12)',
-                  background: paymentMethod === 'COD' ? 'rgba(238, 216, 207, 0.35)' : 'rgba(255, 255, 255, 0.6)',
-                  padding: '1.25rem',
-                  borderRadius: '14px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="COD"
-                  checked={paymentMethod === 'COD'}
-                  onChange={() => {
-                    setPaymentMethod('COD');
-                    setError('');
-                  }}
-                  style={{ marginTop: '0.25rem', accentColor: 'var(--ff-burgundy)' }}
-                />
-                <div style={{ flex: 1 }}>
-                  <strong style={{ fontSize: '0.95rem', color: 'var(--ff-charcoal)' }}>
-                    Cash on delivery (COD)
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <strong style={{ fontSize: '1rem', color: 'var(--ff-charcoal)' }}>
+                    Pay online via Razorpay
                   </strong>
-                  <p style={{ margin: '0.35rem 0 0', color: 'var(--ff-charcoal-soft)', fontSize: '0.84rem', lineHeight: 1.5 }}>
-                    Pay securely with cash or UPI to the delivery courier when your order arrives.
-                  </p>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 600, background: 'rgba(124, 40, 54, 0.08)', color: 'var(--ff-burgundy)', padding: '0.2rem 0.65rem', borderRadius: '20px' }}>
+                    100% Secure Gateway
+                  </span>
                 </div>
-              </label>
+                <p style={{ margin: '0.4rem 0 0.75rem', color: 'var(--ff-charcoal-soft)', fontSize: '0.86rem', lineHeight: 1.5 }}>
+                  Instant order confirmation with UPI (Google Pay, PhonePe, Paytm), Credit &amp; Debit Cards (Visa, Mastercard, RuPay), NetBanking &amp; Wallets.
+                </p>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', fontSize: '0.75rem', color: 'var(--ff-charcoal-soft)' }}>
+                  <span style={{ background: 'rgba(32, 28, 27, 0.06)', padding: '0.25rem 0.55rem', borderRadius: '6px', fontWeight: 600 }}>UPI</span>
+                  <span style={{ background: 'rgba(32, 28, 27, 0.06)', padding: '0.25rem 0.55rem', borderRadius: '6px', fontWeight: 600 }}>Credit / Debit Cards</span>
+                  <span style={{ background: 'rgba(32, 28, 27, 0.06)', padding: '0.25rem 0.55rem', borderRadius: '6px', fontWeight: 600 }}>NetBanking</span>
+                  <span style={{ background: 'rgba(32, 28, 27, 0.06)', padding: '0.25rem 0.55rem', borderRadius: '6px', fontWeight: 600 }}>256-Bit SSL Encryption</span>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -974,23 +950,69 @@ export default function CheckoutPage() {
 
           <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(32, 28, 27, 0.1)' }}>
             <div className="summary-row">
-              <span>Subtotal</span>
-              <strong>₹{subtotal.toLocaleString('en-IN')}</strong>
+              <span>Product Subtotal</span>
+              <strong>₹{checkoutTax.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
             </div>
-            {discountTotal > 0 && (
+            {checkoutTax.discountTotal > 0 && (
               <div className="summary-row" style={{ color: '#047857' }}>
                 <span style={{ fontWeight: 600 }}>1+1 Offer Discount</span>
-                <strong style={{ color: '#047857' }}>-₹{discountTotal.toLocaleString('en-IN')}</strong>
+                <strong style={{ color: '#047857' }}>-₹{checkoutTax.discountTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
               </div>
             )}
+            <div className="summary-row">
+              <span>Taxable Value</span>
+              <strong>₹{checkoutTax.taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+            </div>
+
+            {checkoutTax.isInterState ? (
+              <div className="summary-row">
+                <span style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span>IGST ({checkoutTax.igstRate}%)</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--ff-charcoal-muted)' }}>Inter-state GST (Included)</span>
+                </span>
+                <strong>₹{checkoutTax.igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+              </div>
+            ) : (
+              <>
+                <div className="summary-row">
+                  <span style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span>CGST ({checkoutTax.cgstRate}%)</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--ff-charcoal-muted)' }}>Central GST (Included)</span>
+                  </span>
+                  <strong>₹{checkoutTax.cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                </div>
+                <div className="summary-row">
+                  <span style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span>SGST ({checkoutTax.sgstRate}%)</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--ff-charcoal-muted)' }}>State GST (Included)</span>
+                  </span>
+                  <strong>₹{checkoutTax.sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                </div>
+              </>
+            )}
+
+            <div className="summary-row" style={{ color: 'var(--ff-burgundy)', fontWeight: 600 }}>
+              <span>Total GST Included (18%)</span>
+              <strong>₹{checkoutTax.taxTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+            </div>
+
             <div className="summary-row muted">
-              <span>Shipping</span>
+              <span>Delivery charges</span>
               <strong style={{ color: 'var(--ff-success)' }}>FREE</strong>
             </div>
+
             <div className="summary-row" style={{ paddingTop: '1rem', borderTop: '1px solid rgba(32, 28, 27, 0.1)', marginTop: '0.5rem' }}>
-              <span style={{ fontWeight: 700 }}>Total</span>
-              <strong style={{ fontSize: '1.4rem', color: 'var(--ff-burgundy)' }}>₹{grandTotal.toLocaleString('en-IN')}</strong>
+              <span style={{ fontWeight: 700 }}>Final Amount Payable</span>
+              <strong style={{ fontSize: '1.4rem', color: 'var(--ff-burgundy)' }}>
+                ₹{activeGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </strong>
             </div>
+
+            <p style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--ff-charcoal-soft)', lineHeight: 1.4 }}>
+              {checkoutTax.isStateDetermined
+                ? `Tax determined for ${deliveryState} (${checkoutTax.isInterState ? 'Inter-state IGST' : 'Intra-state CGST + SGST'}).`
+                : 'Enter delivery state to finalize intra-state vs inter-state tax split.'}
+            </p>
           </div>
 
           <div style={{ marginTop: '1.75rem' }}>

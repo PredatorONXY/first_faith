@@ -17,6 +17,13 @@ type AdminOrder = {
   customerName?: string | null;
   customerEmail?: string | null;
   customerPhone?: string | null;
+  taxableAmount?: string | number | null;
+  taxRate?: string | number | null;
+  taxTotal?: string | number | null;
+  cgst?: string | number | null;
+  sgst?: string | number | null;
+  igst?: string | number | null;
+  invoiceNumber?: string | null;
   shippingAddress?: {
     name?: string;
     line1?: string;
@@ -73,6 +80,7 @@ export default function AdminOrderDetailPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [updating, setUpdating] = useState(false);
+
 
   useEffect(() => {
     if (!params?.id) return;
@@ -135,18 +143,20 @@ export default function AdminOrderDetailPage() {
               Placed on {new Date(order.createdAt).toLocaleString('en-IN')}
             </p>
           </div>
-          <span style={{
-            display: 'inline-block',
-            padding: '0.35rem 0.85rem',
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            borderRadius: '999px',
-            background: order.status === 'DELIVERED' ? '#ecfdf5' : order.status === 'CANCELLED' ? '#fdf2f2' : order.status === 'SHIPPED' ? '#eff6ff' : '#fef3c7',
-            color: order.status === 'DELIVERED' ? '#047857' : order.status === 'CANCELLED' ? '#b91c1c' : order.status === 'SHIPPED' ? '#1d4ed8' : '#b45309',
-            border: `1px solid ${order.status === 'DELIVERED' ? '#a7f3d0' : order.status === 'CANCELLED' ? '#fecaca' : order.status === 'SHIPPED' ? '#bfdbfe' : '#fde68a'}`,
-          }}>
-            {order.status}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <span style={{
+              display: 'inline-block',
+              padding: '0.35rem 0.85rem',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              borderRadius: '999px',
+              background: order.status === 'DELIVERED' ? '#ecfdf5' : order.status === 'CANCELLED' ? '#fdf2f2' : order.status === 'SHIPPED' ? '#eff6ff' : '#fef3c7',
+              color: order.status === 'DELIVERED' ? '#047857' : order.status === 'CANCELLED' ? '#b91c1c' : order.status === 'SHIPPED' ? '#1d4ed8' : '#b45309',
+              border: `1px solid ${order.status === 'DELIVERED' ? '#a7f3d0' : order.status === 'CANCELLED' ? '#fecaca' : order.status === 'SHIPPED' ? '#bfdbfe' : '#fde68a'}`,
+            }}>
+              {order.status}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -272,18 +282,51 @@ export default function AdminOrderDetailPage() {
 
             <div style={{ borderTop: '1px solid var(--ff-stone)', paddingTop: '1rem', marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.875rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--ff-charcoal-soft)' }}>
-                <span>Subtotal</span>
-                <span>₹{Number(order.subtotal).toLocaleString('en-IN')}</span>
+                <span>Product Subtotal (Incl. GST)</span>
+                <span>₹{Number(order.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
               {Number(order.discountTotal) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#047857', fontWeight: 600 }}>
                   <span>{order.promotionName ? '1+1 Offer Discount' : 'Discount'}</span>
-                  <span>-₹{Number(order.discountTotal).toLocaleString('en-IN')}</span>
+                  <span>-₹{Number(order.discountTotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               )}
+              {Number(order.taxableAmount || 0) > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--ff-charcoal-soft)' }}>
+                  <span>Taxable Value</span>
+                  <span>₹{Number(order.taxableAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              )}
+              {Number(order.igst || 0) > 0 ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--ff-charcoal-soft)' }}>
+                  <span>IGST Included ({Number(order.taxRate || 18)}%)</span>
+                  <span>₹{Number(order.igst).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              ) : Number(order.taxTotal || 0) > 0 ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--ff-charcoal-soft)' }}>
+                    <span>CGST Included ({Number(order.taxRate || 18) / 2}%)</span>
+                    <span>₹{Number(order.cgst || Number(order.taxTotal) / 2).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--ff-charcoal-soft)' }}>
+                    <span>SGST Included ({Number(order.taxRate || 18) / 2}%)</span>
+                    <span>₹{Number(order.sgst || Number(order.taxTotal) / 2).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                </>
+              ) : null}
+              {Number(order.taxTotal || 0) > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#7c2836', fontWeight: 600 }}>
+                  <span>Total GST Included ({Number(order.taxRate || 18)}%)</span>
+                  <span>₹{Number(order.taxTotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--ff-charcoal-soft)' }}>
+                <span>Delivery charges</span>
+                <span style={{ color: '#047857', fontWeight: 600 }}>FREE</span>
+              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.05rem', color: 'var(--ff-charcoal)', paddingTop: '0.5rem', borderTop: '1px solid rgba(32,28,27,0.1)' }}>
                 <span>Grand Total</span>
-                <span>₹{Number(order.grandTotal).toLocaleString('en-IN')}</span>
+                <span>₹{Number(order.grandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             </div>
           </div>
@@ -332,7 +375,7 @@ export default function AdminOrderDetailPage() {
           <div style={{ borderTop: '1px solid var(--ff-stone)', paddingTop: '1rem', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', color: 'var(--ff-charcoal-soft)' }}>
             <p><strong style={{ color: 'var(--ff-charcoal)' }}>Payment Method:</strong> {order.paymentMethod}</p>
             <p><strong style={{ color: 'var(--ff-charcoal)' }}>Payment Status:</strong> {order.payment?.status || '—'}</p>
-            <p><strong style={{ color: 'var(--ff-charcoal)' }}>Provider:</strong> {order.payment?.provider || 'COD'}</p>
+            <p><strong style={{ color: 'var(--ff-charcoal)' }}>Provider:</strong> {order.payment?.provider || order.paymentMethod || 'RAZORPAY'}</p>
             {order.payment?.providerPaymentId && (
               <p><strong style={{ color: 'var(--ff-charcoal)' }}>Payment ID:</strong> {order.payment.providerPaymentId}</p>
             )}

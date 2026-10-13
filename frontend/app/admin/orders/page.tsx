@@ -147,7 +147,7 @@ export default function AdminOrdersPage() {
                     ₹{Number(order.grandTotal).toLocaleString('en-IN')}
                   </td>
                   <td style={{ fontSize: '0.8rem', color: 'var(--ff-charcoal-soft)' }}>
-                    {order.payment?.provider || order.paymentMethod || 'COD'} · {order.payment?.status || '—'}
+                    {order.payment?.provider || order.paymentMethod || 'RAZORPAY'} · {order.payment?.status || '—'}
                     {order.payment?.refundedAmount && Number(order.payment.refundedAmount) > 0 ? (
                       <span style={{ display: 'block', color: '#b91c1c', fontSize: '0.72rem', fontWeight: 600 }}>
                         Refunded: ₹{Number(order.payment.refundedAmount).toLocaleString('en-IN')}

@@ -42,6 +42,13 @@ type Order = {
     isFreeItem?: boolean;
     freeQuantity?: number;
   }>;
+  taxableAmount?: string | number | null;
+  taxRate?: string | number | null;
+  taxTotal?: string | number | null;
+  cgst?: string | number | null;
+  sgst?: string | number | null;
+  igst?: string | number | null;
+  invoiceNumber?: string | null;
   shippingAddress?: { name?: string; line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string; phone?: string } | null;
   address?: { line1: string; line2?: string | null; city: string; state: string; postalCode: string; country: string; phone?: string | null } | null;
   user?: { fullName?: string | null; email?: string; phone?: string | null } | null;
@@ -131,6 +138,7 @@ export default function OrderDetailPage() {
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState('');
   const [retrySuccess, setRetrySuccess] = useState('');
+
 
   useEffect(() => {
     if (!params?.id) {
@@ -257,6 +265,8 @@ export default function OrderDetailPage() {
           {order.orderNumber} · Placed on {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
         </p>
 
+
+
         {retrySuccess && (
           <div style={{ marginTop: '1.5rem', padding: '1rem 1.25rem', borderRadius: '12px', background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46', fontSize: '0.9rem', fontWeight: 600 }}>
             ✓ {retrySuccess}
@@ -352,22 +362,55 @@ export default function OrderDetailPage() {
               ))}
             </div>
 
-            <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--ff-stone)', display: 'grid', gap: '0.35rem', fontSize: '0.88rem' }}>
+            <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--ff-stone)', display: 'grid', gap: '0.45rem', fontSize: '0.88rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--ff-charcoal-soft)' }}>
-                <span>Subtotal</span>
-                <span>₹{Number(order.subtotal).toLocaleString('en-IN')}</span>
+                <span>Product Subtotal (Incl. GST)</span>
+                <span>₹{Number(order.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
               {Number(order.discountTotal) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#047857', fontWeight: 600 }}>
                   <span>1+1 Offer Discount</span>
-                  <span>-₹{Number(order.discountTotal).toLocaleString('en-IN')}</span>
+                  <span>-₹{Number(order.discountTotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               )}
+              {Number(order.taxableAmount || 0) > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--ff-charcoal-soft)' }}>
+                  <span>Taxable Value</span>
+                  <span>₹{Number(order.taxableAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              )}
+              {Number(order.igst || 0) > 0 ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--ff-charcoal-soft)' }}>
+                  <span>IGST Included ({Number(order.taxRate || 18)}%)</span>
+                  <span>₹{Number(order.igst).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              ) : Number(order.taxTotal || 0) > 0 ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--ff-charcoal-soft)' }}>
+                    <span>CGST Included ({Number(order.taxRate || 18) / 2}%)</span>
+                    <span>₹{Number(order.cgst || Number(order.taxTotal) / 2).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--ff-charcoal-soft)' }}>
+                    <span>SGST Included ({Number(order.taxRate || 18) / 2}%)</span>
+                    <span>₹{Number(order.sgst || Number(order.taxTotal) / 2).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                </>
+              ) : null}
+              {Number(order.taxTotal || 0) > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#7c2836', fontWeight: 600 }}>
+                  <span>Total GST Included ({Number(order.taxRate || 18)}%)</span>
+                  <span>₹{Number(order.taxTotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--ff-charcoal-soft)' }}>
+                <span>Delivery charges</span>
+                <span style={{ color: '#047857', fontWeight: 600 }}>FREE</span>
+              </div>
             </div>
 
             <div className="order-detail-total" style={{ borderTop: '1px solid rgba(32, 28, 27, 0.1)', marginTop: '0.5rem', paddingTop: '0.75rem' }}>
               <span>Total</span>
-              <strong>₹{Number(order.grandTotal).toLocaleString('en-IN')}</strong>
+              <strong>₹{Number(order.grandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
             </div>
           </section>
 

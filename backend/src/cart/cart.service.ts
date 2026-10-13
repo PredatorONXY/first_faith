@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import * as crypto from 'crypto';
 import { PrismaService } from '../common/prisma.service';
 import { PromotionEngine } from '../common/promotions/promotion.engine';
+import { GstEngine, DEFAULT_GST_RATE } from '../common/tax/gst.engine';
 
 const CART_INCLUDE = {
   items: {
@@ -104,11 +105,29 @@ export class CartService {
 
   formatCart(cart: any) {
     const promoResult = PromotionEngine.calculatePromotion(cart.items || []);
+    const gstResult = GstEngine.calculateOrderGst({
+      items: (cart.items || []).map((item: any) => ({
+        variantId: item.variantId,
+        productName: item.variant?.product?.name || '',
+        unitPrice: Number(item.variant?.price || 0),
+        quantity: item.quantity,
+        discount: promoResult.itemDiscounts?.[item.variantId]?.discountAmount || 0,
+        isFree: Boolean(promoResult.itemDiscounts?.[item.variantId]?.isFreeItem),
+      })),
+      gstRate: DEFAULT_GST_RATE,
+    });
+
     return {
       ...cart,
-      subtotal: promoResult.subtotal,
-      discountTotal: promoResult.discountTotal,
-      grandTotal: promoResult.grandTotal,
+      subtotal: gstResult.subtotal,
+      discountTotal: gstResult.discountTotal,
+      taxableAmount: gstResult.taxableAmount,
+      taxRate: gstResult.rate,
+      taxTotal: gstResult.taxTotal,
+      cgst: gstResult.cgstAmount,
+      sgst: gstResult.sgstAmount,
+      igst: gstResult.igstAmount,
+      grandTotal: gstResult.grandTotal,
       promotion: {
         id: promoResult.promotionId,
         name: promoResult.promotionName,

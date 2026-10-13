@@ -305,68 +305,85 @@ export class RazorpayService {
     // - Order.status = PAID
     // - preserve existing transaction/idempotency behavior
     // - preserve existing admin notification behavior
+    let shouldDispatchNotification = false;
     await this.prisma.$transaction(async (tx) => {
-      await tx.payment.update({
-        where: { id: payment.id },
+      const updateResult = await tx.payment.updateMany({
+        where: {
+          id: payment.id,
+          status: { not: PaymentStatus.CAPTURED },
+        },
         data: {
           status: PaymentStatus.CAPTURED,
           providerPaymentId: dto.razorpayPaymentId,
         },
       });
 
-      await tx.order.update({
-        where: { id: order.id },
-        data: { status: OrderStatus.PAID },
-      });
+      if (updateResult.count > 0) {
+        shouldDispatchNotification = true;
+        await tx.order.update({
+          where: { id: order.id },
+          data: { status: OrderStatus.PAID },
+        });
 
-      const customerDisplayName = order.customerName || order.user?.fullName || order.customerEmail || order.user?.email || 'Customer';
-      await tx.adminNotification.create({
-        data: {
-          type: 'NEW_ORDER',
-          title: `New Paid Order #${order.orderNumber}`,
-          message: `Order #${order.orderNumber} paid via Razorpay by ${customerDisplayName} for ₹${Number(order.grandTotal).toLocaleString('en-IN')}`,
-          orderId: order.id,
-          isRead: false,
-        },
-      });
+        const customerDisplayName = order.customerName || order.user?.fullName || order.customerEmail || order.user?.email || 'Customer';
+        await tx.adminNotification.create({
+          data: {
+            type: 'NEW_ORDER',
+            title: `New Paid Order #${order.orderNumber}`,
+            message: `Order #${order.orderNumber} paid via Razorpay by ${customerDisplayName} for ₹${Number(order.grandTotal).toLocaleString('en-IN')}`,
+            orderId: order.id,
+            isRead: false,
+          },
+        });
+      }
     });
 
-    // Send admin email notification (async, non-blocking)
-    try {
-      const orderItems = Array.isArray(order.items) ? order.items : [];
-      const itemCount = orderItems.reduce((sum, it) => sum + (it.quantity || 1), 0);
-      this.emailService
-        .sendAdminNewOrderEmail({
-          orderId: order.id,
-          orderNumber: order.orderNumber,
-          customerName: order.customerName || order.user?.fullName || null,
-          customerEmail: order.customerEmail || order.user?.email || '',
-          customerPhone: order.customerPhone || null,
-          orderDate: order.createdAt || new Date(),
-          itemCount,
-          items: orderItems.map((it) => ({
-            productName: it.productName,
-            variantLabel: it.variantLabel,
-            quantity: it.quantity,
-            unitPrice: Number(it.unitPrice),
-            lineTotal: Number(it.lineTotal),
-            isFreeItem: it.isFreeItem,
-          })),
-          promotionName: order.promotionName,
-          promotionDiscount: Number(order.promotionDiscount || 0),
-          appliedOffers: (order.promotionDetails as any)?.appliedOffers,
-          subtotal: Number(order.subtotal),
-          totalAmount: Number(order.grandTotal),
-          paymentStatus: PaymentStatus.CAPTURED,
-          orderStatus: OrderStatus.PAID,
-        })
-        .catch((err) => {
-          this.logger.error(
-            `Non-blocking admin alert email error for #${order.orderNumber}: ${err.message}`,
-          );
-        });
-    } catch (emailErr: any) {
-      this.logger.error(`Failed to trigger admin order alert email: ${emailErr.message}`);
+    // Send admin email notification only once for newly captured payment (async, non-blocking)
+    if (shouldDispatchNotification) {
+      try {
+        const orderItems = Array.isArray(order.items) ? order.items : [];
+        const itemCount = orderItems.reduce((sum, it) => sum + (it.quantity || 1), 0);
+        this.emailService
+          .sendAdminNewOrderEmail({
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            customerName: order.customerName || order.user?.fullName || null,
+            customerEmail: order.customerEmail || order.user?.email || '',
+            customerPhone: order.customerPhone || null,
+            shippingAddress: (order.shippingAddress as any) || null,
+            paymentMethod: order.paymentMethod || 'RAZORPAY',
+            orderDate: order.createdAt || new Date(),
+            itemCount,
+            items: orderItems.map((it) => ({
+              productName: it.productName,
+              variantLabel: it.variantLabel,
+              quantity: it.quantity,
+              unitPrice: Number(it.unitPrice),
+              lineTotal: Number(it.lineTotal),
+              isFreeItem: it.isFreeItem,
+            })),
+            promotionName: order.promotionName,
+            promotionDiscount: Number(order.promotionDiscount || 0),
+            appliedOffers: (order.promotionDetails as any)?.appliedOffers,
+            subtotal: Number(order.subtotal),
+            taxableAmount: Number(order.taxableAmount || 0),
+            taxTotal: Number(order.taxTotal || 0),
+            cgst: Number(order.cgst || 0),
+            sgst: Number(order.sgst || 0),
+            igst: Number(order.igst || 0),
+            shippingFee: Number(order.shippingFee || 0),
+            totalAmount: Number(order.grandTotal),
+            paymentStatus: PaymentStatus.CAPTURED,
+            orderStatus: OrderStatus.PAID,
+          })
+          .catch((err) => {
+            this.logger.error(
+              `Non-blocking admin alert email error for #${order.orderNumber}: ${err.message}`,
+            );
+          });
+      } catch (emailErr: any) {
+        this.logger.error(`Failed to trigger admin order alert email: ${emailErr.message}`);
+      }
     }
 
     return {
@@ -419,9 +436,13 @@ export class RazorpayService {
 
       if (payment.status === PaymentStatus.CAPTURED) return { received: true };
 
+      let shouldDispatchWebhookNotification = false;
       const updatedOrder = await this.prisma.$transaction(async (tx) => {
-        await tx.payment.update({
-          where: { id: payment.id },
+        const updateResult = await tx.payment.updateMany({
+          where: {
+            id: payment.id,
+            status: { not: PaymentStatus.CAPTURED },
+          },
           data: {
             status: PaymentStatus.CAPTURED,
             providerPaymentId,
@@ -429,6 +450,11 @@ export class RazorpayService {
           },
         });
 
+        if (updateResult.count === 0) {
+          return null;
+        }
+
+        shouldDispatchWebhookNotification = true;
         const ord = await tx.order.update({
           where: { id: payment.orderId },
           data: { status: OrderStatus.PAID },
@@ -438,11 +464,12 @@ export class RazorpayService {
           },
         });
 
+        const customerDisplayName = ord.customerName || ord.user?.fullName || ord.customerEmail || ord.user?.email || 'Customer';
         await tx.adminNotification.create({
           data: {
             type: 'NEW_ORDER',
             title: `New Paid Order #${ord.orderNumber}`,
-            message: `Order #${ord.orderNumber} paid via Razorpay for ₹${Number(ord.grandTotal).toLocaleString('en-IN')}`,
+            message: `Order #${ord.orderNumber} paid via Razorpay by ${customerDisplayName} for ₹${Number(ord.grandTotal).toLocaleString('en-IN')}`,
             orderId: ord.id,
             isRead: false,
           },
@@ -451,41 +478,51 @@ export class RazorpayService {
         return ord;
       });
 
-      try {
-        const webhookItems = Array.isArray(updatedOrder.items) ? updatedOrder.items : [];
-        const itemCount = webhookItems.reduce((sum, it) => sum + (it.quantity || 1), 0);
-        this.emailService
-          .sendAdminNewOrderEmail({
-            orderId: updatedOrder.id,
-            orderNumber: updatedOrder.orderNumber,
-            customerName: updatedOrder.customerName || updatedOrder.user?.fullName || null,
-            customerEmail: updatedOrder.customerEmail || updatedOrder.user?.email || '',
-            customerPhone: updatedOrder.customerPhone || null,
-            orderDate: updatedOrder.createdAt || new Date(),
-            itemCount,
-            items: webhookItems.map((it) => ({
-              productName: it.productName,
-              variantLabel: it.variantLabel,
-              quantity: it.quantity,
-              unitPrice: Number(it.unitPrice),
-              lineTotal: Number(it.lineTotal),
-              isFreeItem: it.isFreeItem,
-            })),
-            promotionName: updatedOrder.promotionName,
-            promotionDiscount: Number(updatedOrder.promotionDiscount || 0),
-            appliedOffers: (updatedOrder.promotionDetails as any)?.appliedOffers,
-            subtotal: Number(updatedOrder.subtotal),
-            totalAmount: Number(updatedOrder.grandTotal),
-            paymentStatus: PaymentStatus.CAPTURED,
-            orderStatus: OrderStatus.PAID,
-          })
-          .catch((err) => {
-            this.logger.error(
-              `Non-blocking webhook admin alert email error for #${updatedOrder.orderNumber}: ${err.message}`,
-            );
-          });
-      } catch (emailErr: any) {
-        this.logger.error(`Failed to trigger admin webhook order alert email: ${emailErr.message}`);
+      if (shouldDispatchWebhookNotification && updatedOrder) {
+        try {
+          const webhookItems = Array.isArray(updatedOrder.items) ? updatedOrder.items : [];
+          const itemCount = webhookItems.reduce((sum, it) => sum + (it.quantity || 1), 0);
+          this.emailService
+            .sendAdminNewOrderEmail({
+              orderId: updatedOrder.id,
+              orderNumber: updatedOrder.orderNumber,
+              customerName: updatedOrder.customerName || updatedOrder.user?.fullName || null,
+              customerEmail: updatedOrder.customerEmail || updatedOrder.user?.email || '',
+              customerPhone: updatedOrder.customerPhone || null,
+              shippingAddress: (updatedOrder.shippingAddress as any) || null,
+              paymentMethod: updatedOrder.paymentMethod || 'RAZORPAY',
+              orderDate: updatedOrder.createdAt || new Date(),
+              itemCount,
+              items: webhookItems.map((it) => ({
+                productName: it.productName,
+                variantLabel: it.variantLabel,
+                quantity: it.quantity,
+                unitPrice: Number(it.unitPrice),
+                lineTotal: Number(it.lineTotal),
+                isFreeItem: it.isFreeItem,
+              })),
+              promotionName: updatedOrder.promotionName,
+              promotionDiscount: Number(updatedOrder.promotionDiscount || 0),
+              appliedOffers: (updatedOrder.promotionDetails as any)?.appliedOffers,
+              subtotal: Number(updatedOrder.subtotal),
+              taxableAmount: Number(updatedOrder.taxableAmount || 0),
+              taxTotal: Number(updatedOrder.taxTotal || 0),
+              cgst: Number(updatedOrder.cgst || 0),
+              sgst: Number(updatedOrder.sgst || 0),
+              igst: Number(updatedOrder.igst || 0),
+              shippingFee: Number(updatedOrder.shippingFee || 0),
+              totalAmount: Number(updatedOrder.grandTotal),
+              paymentStatus: PaymentStatus.CAPTURED,
+              orderStatus: OrderStatus.PAID,
+            })
+            .catch((err) => {
+              this.logger.error(
+                `Non-blocking webhook admin alert email error for #${updatedOrder.orderNumber}: ${err.message}`,
+              );
+            });
+        } catch (emailErr: any) {
+          this.logger.error(`Failed to trigger admin webhook order alert email: ${emailErr.message}`);
+        }
       }
     }
 

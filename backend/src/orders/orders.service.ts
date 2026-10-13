@@ -4,6 +4,8 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../common/prisma.service';
 import { EmailService } from '../common/email/email.service';
 import { PromotionEngine } from '../common/promotions/promotion.engine';
+import { SettingsService } from '../settings/settings.service';
+import { DEFAULT_GST_RATE, DEFAULT_SELLER_STATE, GstEngine } from '../common/tax/gst.engine';
 
 @Injectable()
 export class OrdersService {
@@ -12,6 +14,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
+    private readonly settingsService?: SettingsService,
   ) {}
 
   async createOrder({
@@ -39,8 +42,8 @@ export class OrdersService {
     paymentMethod: PaymentProvider;
     couponCode?: string;
   }) {
-    if (paymentMethod !== PaymentProvider.COD && paymentMethod !== PaymentProvider.RAZORPAY) {
-      throw new BadRequestException('That payment method is not available yet');
+    if (paymentMethod !== PaymentProvider.RAZORPAY) {
+      throw new BadRequestException('Only Razorpay online payments are accepted. Cash on delivery is not supported.');
     }
 
     // 1. Locate Cart
@@ -125,10 +128,10 @@ export class OrdersService {
       }
     }
 
-    // 4. Calculate Server-side Totals with Authoritative 1+1 Skincare Offer Engine
+    // 4. Calculate Server-side Totals with Authoritative 1+1 Skincare Offer Engine & GST Engine
     const promotion = PromotionEngine.calculatePromotion(cart.items);
-    const subtotal = promotion.subtotal;
-    let discountTotal = promotion.discountTotal;
+    const rawSubtotal = promotion.subtotal;
+    let couponDiscount = 0;
     let couponId: string | undefined;
 
     if (couponCode) {
@@ -137,7 +140,7 @@ export class OrdersService {
       if (!coupon || !coupon.isActive || (coupon.startsAt && coupon.startsAt > now) || (coupon.expiresAt && coupon.expiresAt < now)) {
         throw new BadRequestException('Coupon is not valid');
       }
-      const availableSubtotal = Math.max(subtotal - promotion.discountTotal, 0);
+      const availableSubtotal = Math.max(rawSubtotal - promotion.discountTotal, 0);
       if (coupon.minOrderValue && availableSubtotal < Number(coupon.minOrderValue)) {
         throw new BadRequestException('Cart does not meet the coupon minimum');
       }
@@ -145,18 +148,57 @@ export class OrdersService {
       if (coupon.usageLimit !== null && totalUsage >= coupon.usageLimit) {
         throw new BadRequestException('Coupon usage limit reached');
       }
-      const couponDiscount = Math.min(
+      couponDiscount = Math.min(
         coupon.discountType === 'PERCENTAGE'
           ? (availableSubtotal * Number(coupon.discountValue)) / 100
           : Number(coupon.discountValue),
         availableSubtotal,
       );
-      discountTotal += couponDiscount;
       couponId = coupon.id;
     }
 
-    const shippingFee = 0;
-    const grandTotal = Math.max(subtotal - discountTotal, 0) + shippingFee;
+    const availableSubtotalBeforeCoupon = Math.max(rawSubtotal - promotion.discountTotal, 0);
+    const taxItems = cart.items.map((item) => {
+      const itemPromo = promotion.itemDiscounts[item.variantId];
+      const promoDiscount = itemPromo?.discountAmount || 0;
+      const isFree = Boolean(itemPromo?.isFreeItem);
+
+      let itemCouponShare = 0;
+      if (couponDiscount > 0 && availableSubtotalBeforeCoupon > 0 && !isFree) {
+        const itemNet = Math.max(Number(item.variant.price) * item.quantity - promoDiscount, 0);
+        itemCouponShare = (couponDiscount * itemNet) / availableSubtotalBeforeCoupon;
+      }
+
+      return {
+        variantId: item.variantId,
+        productName: item.variant.product.name,
+        unitPrice: Number(item.variant.price),
+        quantity: item.quantity,
+        discount: promoDiscount + itemCouponShare,
+        isFree,
+      };
+    });
+
+    const shippingState = finalShippingAddress?.state || '';
+    const gstResult = GstEngine.calculateOrderGst({
+      items: taxItems,
+      shippingState,
+      sellerState: DEFAULT_SELLER_STATE,
+      gstRate: DEFAULT_GST_RATE,
+      shippingFee: 0,
+    });
+
+    const subtotal = gstResult.subtotal;
+    const discountTotal = gstResult.discountTotal;
+    const taxableAmount = gstResult.taxableAmount;
+    const taxTotal = gstResult.taxTotal;
+    const taxRate = gstResult.rate;
+    const cgst = gstResult.cgstAmount;
+    const sgst = gstResult.sgstAmount;
+    const igst = gstResult.igstAmount;
+    const shippingFee = gstResult.shippingFee;
+    const grandTotal = gstResult.grandTotal;
+
     const orderNumber = `FF-${Date.now().toString().slice(-8)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
     const guestToken = crypto.randomUUID();
 
@@ -174,6 +216,26 @@ export class OrdersService {
           subtotal,
           discountTotal,
           shippingFee,
+          taxableAmount,
+          taxRate,
+          taxTotal,
+          cgst,
+          sgst,
+          igst,
+          taxDetails: {
+            rate: gstResult.rate,
+            isInterState: gstResult.isInterState,
+            cgstRate: gstResult.cgstRate,
+            cgstAmount: gstResult.cgstAmount,
+            sgstRate: gstResult.sgstRate,
+            sgstAmount: gstResult.sgstAmount,
+            igstRate: gstResult.igstRate,
+            igstAmount: gstResult.igstAmount,
+            taxableAmount: gstResult.taxableAmount,
+            taxTotal: gstResult.taxTotal,
+            sellerState: DEFAULT_SELLER_STATE,
+            customerState: shippingState,
+          } as unknown as Prisma.InputJsonValue,
           grandTotal,
           promotionName: promotion.isActive ? promotion.promotionName : null,
           promotionDiscount: promotion.discountTotal,
@@ -229,72 +291,6 @@ export class OrdersService {
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
       return created;
     });
-
-    // For COD orders, dispatch notification & email alert
-    if (paymentMethod === PaymentProvider.COD) {
-      try {
-        await this.prisma.adminNotification.create({
-          data: {
-            type: 'NEW_ORDER',
-            title: `New Order #${createdOrder.orderNumber}`,
-            message: `Order #${createdOrder.orderNumber} placed by ${customerName || 'Guest Customer'} for ₹${Number(createdOrder.grandTotal).toLocaleString('en-IN')} (COD)${createdOrder.promotionName ? ' [1+1 Offer]' : ''}`,
-            orderId: createdOrder.id,
-            isRead: false,
-          },
-        });
-      } catch (notifErr: any) {
-        this.logger.error(`Failed to create admin dashboard notification: ${notifErr.message}`);
-      }
-
-      try {
-        const orderItemsList = (createdOrder as any).items || cart.items.map((item) => {
-          const itemPromo = promotion.itemDiscounts[item.variantId];
-          const isFree = Boolean(itemPromo?.isFreeItem);
-          return {
-            productName: item.variant.product.name,
-            variantLabel: item.variant.sizeLabel,
-            quantity: item.quantity,
-            unitPrice: Number(item.variant.price),
-            lineTotal: Number(item.variant.price) * item.quantity,
-            isFreeItem: isFree,
-          };
-        });
-
-        const itemCount = orderItemsList.reduce((sum: number, it: any) => sum + it.quantity, 0);
-        this.emailService
-          .sendAdminNewOrderEmail({
-            orderId: createdOrder.id,
-            orderNumber: createdOrder.orderNumber,
-            customerName: customerName || null,
-            customerEmail: customerEmail || '',
-            customerPhone: customerPhone || null,
-            shippingAddress: finalShippingAddress as any,
-            paymentMethod,
-            orderDate: new Date(),
-            itemCount,
-            items: orderItemsList.map((it: any) => ({
-              productName: it.productName,
-              variantLabel: it.variantLabel,
-              quantity: it.quantity,
-              unitPrice: Number(it.unitPrice),
-              lineTotal: Number(it.lineTotal),
-              isFreeItem: it.isFreeItem,
-            })),
-            promotionName: createdOrder.promotionName,
-            promotionDiscount: Number(createdOrder.promotionDiscount || 0),
-            appliedOffers: (createdOrder.promotionDetails as any)?.appliedOffers,
-            subtotal: Number(createdOrder.subtotal),
-            totalAmount: Number(createdOrder.grandTotal),
-            paymentStatus: PaymentStatus.CREATED,
-            orderStatus: createdOrder.status,
-          })
-          .catch((err) => {
-            this.logger.error(`[EMAIL] Admin COD notification failed: ${err.message}`);
-          });
-      } catch (emailErr: any) {
-        this.logger.error(`[EMAIL] Admin COD notification failed: ${emailErr.message}`);
-      }
-    }
 
     return createdOrder;
   }

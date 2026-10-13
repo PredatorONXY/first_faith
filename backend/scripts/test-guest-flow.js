@@ -304,7 +304,14 @@ async function runGuestFlowTests() {
     assert(typeof order.guestToken === 'string' && order.guestToken.length > 20, 'Unguessable guestToken generated');
     assert(order.customerEmail === 'ananya@example.com', 'Customer email preserved on order');
     assert(order.customerName === 'Ananya Roy', 'Customer name preserved on order');
-    assert(order.grandTotal === 1700, 'Subtotal and grandTotal calculated correctly server-side (850 x 2)');
+    assert(order.subtotal === 1700, 'Subtotal is ₹1700 (850 x 2)');
+    assert(order.taxableAmount === 1440.68, 'Taxable amount is ₹1440.68');
+    assert(order.taxTotal === 259.32, 'Included 18% GST is ₹259.32');
+    assert(order.cgst === 129.66, 'Intra-state Maharashtra CGST (9%) is ₹129.66');
+    assert(order.sgst === 129.66, 'Intra-state Maharashtra SGST (9%) is ₹129.66');
+    assert(order.igst === 0, 'Intra-state Maharashtra IGST is ₹0');
+    assert(order.grandTotal === 1700, 'Customer grand total remains ₹1700.00 (inclusive of GST)');
+    assert(order.orderNumber && order.orderNumber.startsWith('FF-'), 'Unique orderNumber generated');
     assert(order.shippingAddress.line1 === 'Flat 402, Sea Breeze', 'Shipping address correctly stored');
   }
 
@@ -338,7 +345,7 @@ async function runGuestFlowTests() {
     razorpayService.client = {
       orders: {
         create: async (params) => {
-          assert(params.amount === 170000, 'Amount in paise correctly sent to Razorpay (1700 x 100)');
+          assert(params.amount === 170000, 'Amount in paise correctly sent to Razorpay: 170000 (1700 x 100)');
           assert(params.currency === 'INR', 'Currency INR sent');
           return { id: razorpayOrderIdGenerated, amount: params.amount, currency: 'INR' };
         },
@@ -419,6 +426,10 @@ async function runGuestFlowTests() {
               paymentStatusUpdated = data.status;
               return { id: 'pay_rec_1', ...data };
             },
+            updateMany: async ({ data }) => {
+              paymentStatusUpdated = data.status;
+              return { count: 1 };
+            },
           },
           adminNotification: {
             create: async () => ({ id: 'notif_1' }),
@@ -475,7 +486,7 @@ async function runGuestFlowTests() {
   }
 
   // ----------------------------------------------------
-  // TEST 5: Order viewing security for guests (OrdersService.findOne)
+  // TEST 5: Order viewing security for guests
   // ----------------------------------------------------
   console.log('\n--- TEST 5: Order viewing security for guestToken ---');
   {
@@ -486,8 +497,18 @@ async function runGuestFlowTests() {
             return {
               ...createdGuestOrder,
               status: 'PAID',
-              items: [],
-              payment: { status: 'CAPTURED' },
+              items: [
+                {
+                  id: 'item_1',
+                  productName: 'Hydrating Face Wash',
+                  variantLabel: '100ml',
+                  quantity: 2,
+                  unitPrice: 850,
+                  lineTotal: 1700,
+                  isFreeItem: false,
+                },
+              ],
+              payment: { status: 'CAPTURED', provider: 'RAZORPAY' },
             };
           }
           return null;

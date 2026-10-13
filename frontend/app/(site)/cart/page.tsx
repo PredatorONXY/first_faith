@@ -4,7 +4,20 @@ import { useCart } from '../../../hooks/useCart';
 import { Button } from '../../../components/ui/Button';
 
 export default function CartPage() {
-  const { cart, loading, mutating, error, updateQuantity, removeItem, subtotal, discountTotal, grandTotal, promotion } = useCart();
+  const {
+    cart,
+    loading,
+    mutating,
+    error,
+    updateQuantity,
+    removeItem,
+    subtotal,
+    discountTotal,
+    taxableAmount,
+    taxTotal,
+    grandTotal,
+    promotion,
+  } = useCart();
 
   if (loading) {
     return (
@@ -183,16 +196,26 @@ export default function CartPage() {
         <aside className="cart-summary">
           <p className="section-kicker" style={{ marginBottom: '1.25rem' }}>Order summary</p>
           <div className="summary-row">
-            <span>Subtotal</span>
-            <strong>₹{subtotal.toLocaleString('en-IN')}</strong>
+            <span>Product Subtotal</span>
+            <strong>₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
           </div>
 
           {discountTotal > 0 && (
             <div className="summary-row" style={{ color: '#047857' }}>
               <span style={{ fontWeight: 600 }}>1+1 Offer Discount</span>
-              <strong style={{ color: '#047857' }}>-₹{discountTotal.toLocaleString('en-IN')}</strong>
+              <strong style={{ color: '#047857' }}>-₹{discountTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
             </div>
           )}
+
+          <div className="summary-row">
+            <span>Taxable Value</span>
+            <strong>₹{taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+          </div>
+
+          <div className="summary-row">
+            <span>Included GST (18%)</span>
+            <strong>₹{taxTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+          </div>
 
           <div className="summary-row muted">
             <span>Shipping</span>
@@ -200,14 +223,14 @@ export default function CartPage() {
           </div>
 
           <div className="summary-row" style={{ marginTop: '0.75rem', paddingTop: '1rem', borderTop: '1px solid rgba(32, 28, 27, 0.1)' }}>
-            <span style={{ fontWeight: 700 }}>Total</span>
+            <span style={{ fontWeight: 700 }}>Final Payable Amount</span>
             <strong style={{ fontSize: '1.35rem', color: 'var(--ff-burgundy)' }}>
-              ₹{grandTotal.toLocaleString('en-IN')}
+              ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </strong>
           </div>
 
           <p className="summary-note" style={{ marginTop: '1rem' }}>
-            Taxes and courier shipping included. 100% genuine mindful formulations.
+            Final tax split (CGST + SGST or IGST) is calculated dynamically from your delivery address.
           </p>
 
           <div style={{ marginTop: '1.75rem' }}>

@@ -57,6 +57,12 @@ export interface Cart {
   items: CartItem[];
   subtotal?: number;
   discountTotal?: number;
+  taxableAmount?: number;
+  taxRate?: number;
+  taxTotal?: number;
+  cgst?: number;
+  sgst?: number;
+  igst?: number;
   grandTotal?: number;
   promotion?: CartPromotionData;
 }
@@ -68,6 +74,12 @@ interface CartContextType {
   error: string;
   subtotal: number;
   discountTotal: number;
+  taxableAmount: number;
+  taxRate: number;
+  taxTotal: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
   grandTotal: number;
   promotion: CartPromotionData | null;
   addItem: (variantId: string, quantity?: number) => Promise<Cart>;
@@ -222,9 +234,37 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return cart?.discountTotal ?? (cart?.promotion?.discountTotal ?? 0);
   }, [cart]);
 
+  const netPayable = useMemo(() => {
+    return Math.max(subtotal - discountTotal, 0);
+  }, [subtotal, discountTotal]);
+
+  const taxRate = useMemo(() => {
+    return cart?.taxRate ?? 18;
+  }, [cart]);
+
+  const taxableAmount = useMemo(() => {
+    if (cart?.taxableAmount !== undefined && cart?.taxableAmount !== null) {
+      return cart.taxableAmount;
+    }
+    const netPaise = Math.round(netPayable * 100);
+    const taxablePaise = Math.round((netPaise * 100) / (100 + taxRate));
+    return Number((taxablePaise / 100).toFixed(2));
+  }, [cart, netPayable, taxRate]);
+
+  const taxTotal = useMemo(() => {
+    if (cart?.taxTotal !== undefined && cart?.taxTotal !== null) {
+      return cart.taxTotal;
+    }
+    return Number((netPayable - taxableAmount).toFixed(2));
+  }, [cart, netPayable, taxableAmount]);
+
+  const cgst = useMemo(() => cart?.cgst ?? Number((taxTotal / 2).toFixed(2)), [cart, taxTotal]);
+  const sgst = useMemo(() => cart?.sgst ?? Number((taxTotal - cgst).toFixed(2)), [cart, taxTotal, cgst]);
+  const igst = useMemo(() => cart?.igst ?? 0, [cart]);
+
   const grandTotal = useMemo(() => {
-    return cart?.grandTotal ?? Math.max(subtotal - discountTotal, 0);
-  }, [cart, subtotal, discountTotal]);
+    return cart?.grandTotal ?? netPayable;
+  }, [cart, netPayable]);
 
   const promotion = useMemo(() => {
     return cart?.promotion ?? null;
@@ -238,6 +278,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       error,
       subtotal,
       discountTotal,
+      taxableAmount,
+      taxRate,
+      taxTotal,
+      cgst,
+      sgst,
+      igst,
       grandTotal,
       promotion,
       addItem,
@@ -246,7 +292,27 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       refresh,
       clear,
     }),
-    [cart, loading, mutating, error, subtotal, discountTotal, grandTotal, promotion, addItem, updateQuantity, removeItem, refresh, clear],
+    [
+      cart,
+      loading,
+      mutating,
+      error,
+      subtotal,
+      discountTotal,
+      taxableAmount,
+      taxRate,
+      taxTotal,
+      cgst,
+      sgst,
+      igst,
+      grandTotal,
+      promotion,
+      addItem,
+      updateQuantity,
+      removeItem,
+      refresh,
+      clear,
+    ],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

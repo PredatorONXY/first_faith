@@ -93,8 +93,9 @@ export class CreateOrderDto {
   @IsString()
   couponCode?: string;
 
+  @IsOptional()
   @IsEnum(PaymentProvider)
-  paymentMethod!: PaymentProvider;
+  paymentMethod?: PaymentProvider;
 }
 
 class UpdateOrderStatusDto {
@@ -120,7 +121,7 @@ export class OrdersController {
       customer: dto.customer,
       shippingAddress: dto.shippingAddress,
       addressId: dto.addressId,
-      paymentMethod: dto.paymentMethod,
+      paymentMethod: dto.paymentMethod || PaymentProvider.RAZORPAY,
       couponCode: dto.couponCode,
     });
   }

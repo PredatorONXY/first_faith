@@ -264,6 +264,16 @@ async function runPromotionFlowTests() {
           if (p) Object.assign(p, data);
           return p;
         },
+        updateMany: async ({ where, data }) => {
+          let count = 0;
+          for (const p of payments) {
+            if (where.id && p.id !== where.id) continue;
+            if (where.status && where.status.not && p.status === where.status.not) continue;
+            Object.assign(p, data);
+            count++;
+          }
+          return { count };
+        },
       },
       adminNotification: {
         create: async () => ({}),
@@ -332,7 +342,9 @@ async function runPromotionFlowTests() {
     const cart = await cartService.addItem(sessionToken, catalog.clayMask.id, 1);
     assert(cart.subtotal === 695 + 525, 'Cart automatically paired Clay Mask (695) + Cleanser (525)');
     assert(cart.discountTotal === 525, 'Cleanser discount is ₹525');
-    assert(cart.grandTotal === 695, 'Grand total is ₹695 (Clay Mask price)');
+    assert(cart.taxableAmount === 588.98, 'Taxable amount is ₹588.98');
+    assert(cart.taxTotal === 106.02, '18% GST is ₹106.02');
+    assert(cart.grandTotal === 695.00, 'Grand total is ₹695.00 (Clay Mask inclusive price)');
     assert(cart.promotion.isActive === true, 'Promotion is active');
     assert(cart.promotion.appliedOffers[0].offerId === 'OFFER_A', 'Offer A applied');
   }
@@ -345,7 +357,9 @@ async function runPromotionFlowTests() {
     const cart = await cartService.addItem(sessionToken, catalog.bodyButter.id, 1);
     assert(cart.subtotal === 625 + 675, 'Body Butter (625) + Serum (675) subtotal');
     assert(cart.discountTotal === 675, 'Serum discount is ₹675');
-    assert(cart.grandTotal === 625, 'Grand total is ₹625');
+    assert(cart.taxableAmount === 529.66, 'Taxable amount is ₹529.66');
+    assert(cart.taxTotal === 95.34, '18% GST is ₹95.34');
+    assert(cart.grandTotal === 625.00, 'Grand total is ₹625.00 (Body Butter inclusive price)');
     assert(cart.promotion.appliedOffers[0].offerId === 'OFFER_B', 'Offer B applied');
   }
 
@@ -357,7 +371,9 @@ async function runPromotionFlowTests() {
     const cart = await cartService.addItem(sessionToken, catalog.sunscreen.id, 1);
     assert(cart.subtotal === 795 + 525, 'Sunscreen (795) + Cleanser (525) subtotal');
     assert(cart.discountTotal === 525, 'Cleanser discount is ₹525');
-    assert(cart.grandTotal === 795, 'Grand total is ₹795');
+    assert(cart.taxableAmount === 673.73, 'Taxable amount is ₹673.73');
+    assert(cart.taxTotal === 121.27, '18% GST is ₹121.27');
+    assert(cart.grandTotal === 795.00, 'Grand total is ₹795.00 (Sunscreen inclusive price)');
     assert(cart.promotion.appliedOffers[0].offerId === 'OFFER_C', 'Offer C applied');
   }
 
@@ -369,7 +385,9 @@ async function runPromotionFlowTests() {
     await cartService.addItem(sessionToken, catalog.clayMask.id, 1);
     const cart = await cartService.addItem(sessionToken, catalog.bodyButter.id, 1);
     assert(cart.discountTotal === 525 + 675, 'Combined discount is ₹1200 (Cleanser 525 + Serum 675)');
-    assert(cart.grandTotal === 695 + 625, 'Grand total is ₹1320 (695 + 625)');
+    assert(cart.taxableAmount === 1118.64, 'Taxable amount is ₹1118.64 (588.98 + 529.66)');
+    assert(cart.taxTotal === 201.36, '18% GST is ₹201.36');
+    assert(cart.grandTotal === 1320.00, 'Grand total is ₹1320.00 (695 + 625)');
     assert(cart.promotion.appliedOffers.length === 2, '2 distinct offers applied');
   }
 
@@ -381,7 +399,9 @@ async function runPromotionFlowTests() {
     await cartService.addItem(sessionToken, catalog.clayMask.id, 1);
     const cart = await cartService.addItem(sessionToken, catalog.sunscreen.id, 1);
     assert(cart.discountTotal === 525 * 2, 'Combined discount is ₹1050 (2 free Cleansers)');
-    assert(cart.grandTotal === 695 + 795, 'Grand total is ₹1490');
+    assert(cart.taxableAmount === 1262.71, 'Taxable amount is ₹1262.71 (588.98 + 673.73)');
+    assert(cart.taxTotal === 227.29, '18% GST is ₹227.29');
+    assert(cart.grandTotal === 1490.00, 'Grand total is ₹1490.00 (695 + 795)');
     assert(cart.promotion.appliedOffers.length === 2, 'Offer A and Offer C applied');
   }
 
@@ -393,7 +413,9 @@ async function runPromotionFlowTests() {
     await cartService.addItem(sessionToken, catalog.bodyButter.id, 1);
     const cart = await cartService.addItem(sessionToken, catalog.sunscreen.id, 1);
     assert(cart.discountTotal === 675 + 525, 'Discount is Serum (675) + Cleanser (525)');
-    assert(cart.grandTotal === 625 + 795, 'Grand total is ₹1420');
+    assert(cart.taxableAmount === 1203.39, 'Taxable amount is ₹1203.39 (529.66 + 673.73)');
+    assert(cart.taxTotal === 216.61, '18% GST is ₹216.61');
+    assert(cart.grandTotal === 1420.00, 'Grand total is ₹1420.00 (625 + 795)');
   }
 
   console.log('\n--- TEST 7: All three qualifying products ---');
@@ -405,7 +427,9 @@ async function runPromotionFlowTests() {
     await cartService.addItem(sessionToken, catalog.bodyButter.id, 1);
     const cart = await cartService.addItem(sessionToken, catalog.sunscreen.id, 1);
     assert(cart.discountTotal === (525 * 2) + 675, 'All 3 free items discounted: 2 Cleansers + 1 Serum');
-    assert(cart.grandTotal === 695 + 625 + 795, 'Grand total matches sum of 3 buy products: ₹2115');
+    assert(cart.taxableAmount === 1792.37, 'Taxable amount matches sum of 3 buy products: ₹1792.37');
+    assert(cart.taxTotal === 322.63, '18% GST is ₹322.63');
+    assert(cart.grandTotal === 2115.00, 'Grand total matches sum of 3 buy products: ₹2115.00');
     assert(cart.promotion.appliedOffers.length === 3, 'All 3 offers active simultaneously');
   }
 
@@ -419,7 +443,9 @@ async function runPromotionFlowTests() {
     const cleanserItem = cart.items.find((i) => i.variant.product.slug === 'cleanser');
     assert(cleanserItem && cleanserItem.quantity === 2, '2 Cleansers automatically paired for 2 Clay Masks');
     assert(cart.discountTotal === 525 * 2, 'Discount is 2 x 525 = ₹1050');
-    assert(cart.grandTotal === 695 * 2, 'Grand total is 2 x 695 = ₹1390');
+    assert(cart.taxableAmount === 1177.97, 'Taxable amount is 2 x 695 = ₹1177.97');
+    assert(cart.taxTotal === 212.03, '18% GST is ₹212.03');
+    assert(cart.grandTotal === 1390.00, 'Grand total is ₹1390.00 (2 x 695)');
   }
 
   console.log('\n--- TEST 9: Removing BUY product removes associated FREE product ---');
@@ -436,6 +462,7 @@ async function runPromotionFlowTests() {
     cart = await cartService.removeItem(sessionToken, maskItem.id);
     assert(cart.items.length === 0, 'Cart is completely empty after removing BUY item (free item was removed)');
     assert(cart.discountTotal === 0, 'Discount is ₹0');
+    assert(cart.taxTotal === 0, 'GST is ₹0');
     assert(cart.grandTotal === 0, 'Grand total is ₹0');
   }
 
@@ -453,7 +480,9 @@ async function runPromotionFlowTests() {
     cart = await cartService.removeItem(sessionToken, freeItem.id);
     assert(cart.items.length === 1, 'Only Clay Mask remains in cart');
     assert(cart.discountTotal === 0, 'Discount is now 0 without free item');
-    assert(cart.grandTotal === 695, 'Grand total is full price of Clay Mask (695)');
+    assert(cart.taxableAmount === 588.98, 'Taxable is ₹588.98');
+    assert(cart.taxTotal === 106.02, '18% GST is ₹106.02');
+    assert(cart.grandTotal === 695.00, 'Grand total is full price of Clay Mask (695.00)');
     assert(cart.promotion.missingFreeItems.length === 1, 'Cleanser noted as eligible missing free item');
   }
 
@@ -488,12 +517,14 @@ async function runPromotionFlowTests() {
     // Add cleanser first (full price)
     await cartService.addItem(sessionToken, catalog.cleanser.id, 1);
     let cart = await cartService.getCart(sessionToken);
-    assert(cart.discountTotal === 0 && cart.grandTotal === 525, 'Cleanser added at full price ₹525');
+    assert(cart.discountTotal === 0 && cart.taxTotal === 80.08 && cart.grandTotal === 525.00, 'Cleanser added at full price ₹525 (tax ₹80.08 included)');
 
     // Now add Clay Mask
     cart = await cartService.addItem(sessionToken, catalog.clayMask.id, 1);
     assert(cart.discountTotal === 525, 'Cleanser is now marked free: discount ₹525');
-    assert(cart.grandTotal === 695, 'Grand total is ₹695 (Clay Mask price)');
+    assert(cart.taxableAmount === 588.98, 'Taxable amount is ₹588.98');
+    assert(cart.taxTotal === 106.02, '18% GST is ₹106.02');
+    assert(cart.grandTotal === 695.00, 'Grand total is ₹695.00 (Clay Mask)');
   }
 
   console.log('\n--- TEST 13 & 14: Free product quantity greater than qualifying quantity ---');
@@ -511,7 +542,9 @@ async function runPromotionFlowTests() {
     const cleanser = cart.items.find((i) => i.variant.product.slug === 'cleanser');
     assert(cleanser.quantity === 3, 'Customer has 3 cleansers in cart');
     assert(cart.discountTotal === 525, 'Discount is strictly capped at 1 cleanser (-₹525)');
-    assert(cart.grandTotal === 695 + (525 * 2), 'Grand total charges for 1 mask + 2 paid cleansers (₹1745)');
+    assert(cart.taxableAmount === 1478.81, 'Taxable charges for 1 mask + 2 paid cleansers (₹1478.81)');
+    assert(cart.taxTotal === 266.19, '18% GST is ₹266.19');
+    assert(cart.grandTotal === 1745.00, 'Grand total charges for 1 mask + 2 paid cleansers (₹1745.00)');
     assert(cart.promotion.itemDiscounts[cleanser.variantId].freeQuantity === 1, 'Promotion engine marks only 1 unit as free');
   }
 
@@ -527,7 +560,9 @@ async function runPromotionFlowTests() {
     const cart = await cartService.addItem(sessionToken, catalog.clayMask.id, 1);
     assert(cart.items.length === 1, 'Clay Mask added alone without out-of-stock Cleanser');
     assert(cart.discountTotal === 0, 'No discount granted for unavailable item');
-    assert(cart.grandTotal === 695, 'Order remains valid for buy product at ₹695');
+    assert(cart.taxableAmount === 588.98, 'Taxable is ₹588.98');
+    assert(cart.taxTotal === 106.02, '18% GST is ₹106.02');
+    assert(cart.grandTotal === 695.00, 'Order remains valid for buy product at ₹695.00');
   }
 
   console.log('\n--- TEST 16 & 17: Refreshing cart & Guest cart persistence ---');
@@ -566,7 +601,12 @@ async function runPromotionFlowTests() {
 
     assert(order.subtotal.toString() === '1220', 'Server subtotal is ₹1220 (695 + 525)');
     assert(order.discountTotal.toString() === '525', 'Server discount is ₹525');
-    assert(order.grandTotal.toString() === '695', 'Server grand total is ₹695');
+    assert(order.taxableAmount.toString() === '588.98', 'Server taxable amount is ₹588.98');
+    assert(order.taxTotal.toString() === '106.02', 'Server GST is ₹106.02');
+    assert(order.cgst.toString() === '53.01', 'Server CGST (9%) is ₹53.01');
+    assert(order.sgst.toString() === '53.01', 'Server SGST (9%) is ₹53.01');
+    assert(order.grandTotal.toString() === '695', 'Server grand total is ₹695.00 (Clay Mask inclusive price)');
+    assert(order.orderNumber && order.orderNumber.startsWith('FF-'), 'Order persists unique orderNumber');
     assert(order.promotionName === 'FIRST FAITH 1+1 SKINCARE OFFER', 'Order persists promotionName');
     assert(order.items.some((i) => i.isFreeItem === true), 'OrderItem marked as isFreeItem = true');
 
@@ -575,11 +615,11 @@ async function runPromotionFlowTests() {
     razorpayService.client = mockRazorpayClient;
 
     const rzpOrder = await razorpayService.createPaymentOrder(order.id, order.guestToken);
-    assert(rzpOrder.amount === 69500, 'Razorpay receives EXACT server grandTotal in paise: 69500 (₹695), NOT ₹1220');
+    assert(rzpOrder.amount === 69500, 'Razorpay receives EXACT server grandTotal in paise: 69500 (₹695.00), NOT ₹1220');
 
     // Retry Payment before completion reuses or refreshes safely
     const retryOrder = await razorpayService.createPaymentOrder(order.id, order.guestToken);
-    assert(retryOrder.amount === 69500, 'Retry payment order also charges exact ₹695');
+    assert(retryOrder.amount === 69500, 'Retry payment order also charges exact ₹695.00');
 
     // Verify Payment
     mockRazorpayClient.payments.fetch = async () => ({
@@ -616,46 +656,66 @@ async function runPromotionFlowTests() {
       sessionToken,
       customer: { name: 'Priya Patel', email: 'priya@example.com', phone: '9876543211' },
       shippingAddress: { line1: '45 Lotus Lane', city: 'Bengaluru', state: 'KA', postalCode: '560001' },
-      paymentMethod: PaymentProvider.COD,
+      paymentMethod: PaymentProvider.RAZORPAY,
     });
 
     // Customer order view
     const customerView = await ordersService.findOne(order.id, order.guestToken);
     assert(customerView.promotionName === 'FIRST FAITH 1+1 SKINCARE OFFER', 'Customer view includes promotionName');
     assert(customerView.items.find((i) => i.productName === 'Serum').isFreeItem === true, 'Customer view shows Serum as free item');
+    assert(customerView.orderNumber && customerView.orderNumber.startsWith('FF-'), 'Customer view includes orderNumber');
 
     // Admin order view
     const adminView = await ordersService.findOne(order.id, undefined, undefined, true);
     assert(adminView.promotionName === 'FIRST FAITH 1+1 SKINCARE OFFER', 'Admin view includes promotionName');
     assert(adminView.promotionDiscount.toString() === '675', 'Admin view includes exact discount ₹675');
     assert(adminView.promotionDetails.appliedOffers[0].freeProductName === 'Serum', 'Admin view details show free product name');
+    assert(adminView.taxTotal.toString() === '95.34', 'Admin view includes 18% GST of ₹95.34');
+    assert(adminView.igst.toString() === '95.34', 'Admin view marks Karnataka order as inter-state IGST ₹95.34');
   }
 
-  console.log('\n--- RESEND EMAIL ALERT TESTS ---');
+  console.log('\n--- RESEND EMAIL ALERT & COD REJECTION TESTS ---');
   {
     assert(sentEmails.length >= 1, 'Email alert was dispatched on order creation/payment');
     const lastAlert = sentEmails[sentEmails.length - 1];
     assert(lastAlert.promotionName === 'FIRST FAITH 1+1 SKINCARE OFFER', 'Email contains promotion details');
-    assert(lastAlert.totalAmount === 625, 'Email contains final payable total ₹625');
+    assert(lastAlert.totalAmount === 695, 'Email contains final payable total ₹695.00 (Clay Mask inclusive price)');
     assert(lastAlert.items.some((i) => i.isFreeItem === true), 'Email items flag 1+1 free companion');
 
-    // Test Resend failure resilience
-    console.log('Testing Resend API failure does NOT break order creation:');
-    simulateResendFailure = true;
+    // Test COD rejection
+    console.log('Testing Cash on Delivery (COD) rejection:');
     const prisma = createMockPrisma();
     const cartService = new CartService(prisma);
     const ordersService = new OrdersService(prisma, mockEmailService);
-    const sessionToken = 'resend_failure_test_session';
+    const sessionToken = 'cod_rejection_session';
     await cartService.addItem(sessionToken, catalog.clayMask.id, 1);
 
+    let codRejected = false;
+    try {
+      await ordersService.createOrder({
+        sessionToken,
+        customer: { name: 'Reject COD', email: 'reject@example.com', phone: '9999999999' },
+        shippingAddress: { line1: 'No COD Lane', city: 'Delhi', state: 'DL', postalCode: '110001' },
+        paymentMethod: PaymentProvider.COD,
+      });
+    } catch (err) {
+      if (err.message && (err.message.includes('not supported') || err.message.includes('not available') || err.message.includes('Razorpay'))) {
+        codRejected = true;
+      }
+    }
+    assert(codRejected, 'Cash on delivery (COD) is rejected by order service');
+
+    // Test Resend failure resilience during online payment verification
+    console.log('Testing Resend API failure does NOT break payment verification:');
+    simulateResendFailure = true;
     const safeOrder = await ordersService.createOrder({
       sessionToken,
       customer: { name: 'Simulated Fail', email: 'fail@example.com', phone: '9999999999' },
       shippingAddress: { line1: 'Resend Fail Lane', city: 'Delhi', state: 'DL', postalCode: '110001' },
-      paymentMethod: PaymentProvider.COD,
+      paymentMethod: PaymentProvider.RAZORPAY,
     });
 
-    assert(safeOrder.id !== undefined, 'Order successfully created even when Resend email failed');
+    assert(safeOrder.id !== undefined, 'Order successfully created via online payment');
     assert(safeOrder.grandTotal.toString() === '695', 'Order amount remains valid upon email failure');
   }
 

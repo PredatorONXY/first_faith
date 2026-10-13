@@ -71,7 +71,12 @@ export function ProductCard({ product }: { product: Product }) {
           <div className="product-card-meta">
             <span className="product-card-size">{displaySize}</span>
             {price ? (
-              <span className="product-card-price">₹{price}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span className="product-card-price">₹{price}</span>
+                <span style={{ fontSize: '0.68rem', color: 'var(--ff-charcoal-muted)', letterSpacing: '0.02em', marginTop: '2px' }}>
+                  (Incl. GST)
+                </span>
+              </div>
             ) : (
               <span className="product-card-size">Coming soon</span>
             )}

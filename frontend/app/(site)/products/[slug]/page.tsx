@@ -69,6 +69,11 @@ export default async function ProductPage({ params }: Props) {
             <span className="product-price-main">
               {price ? `₹${price}` : 'Price coming soon'}
             </span>
+            {price && (
+              <span style={{ fontSize: '0.82rem', color: 'var(--ff-charcoal-muted)', letterSpacing: '0.02em', alignSelf: 'center' }}>
+                (Incl. 18% GST)
+              </span>
+            )}
             {variant && (
               <span className="product-size-pill">{variant.sizeLabel || content.sizeLabel}</span>
             )}
