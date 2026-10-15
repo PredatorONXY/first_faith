@@ -46,6 +46,7 @@ export function OfferPopup() {
       pathname.startsWith('/cart') ||
       pathname.startsWith('/admin') ||
       pathname.startsWith('/account') ||
+      pathname.startsWith('/track-order') ||
       pathname.startsWith('/auth');
 
     if (isExcluded) return;

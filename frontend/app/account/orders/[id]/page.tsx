@@ -144,9 +144,9 @@ export default function OrderDetailPage() {
     if (!params?.id) {
       return;
     }
-    // If not authenticated and no guest token is provided, redirect to login
+    // If not authenticated and no guest token is provided, redirect to track-order
     if (!guestToken && !getAccessToken()) {
-      router.replace('/login');
+      router.replace('/track-order');
       return;
     }
 

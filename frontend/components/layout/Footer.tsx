@@ -40,7 +40,7 @@ export function Footer({ settings = {} }: { settings?: FooterSettings }) {
             <ul className="footer-links">
               <li><Link href="/about">About</Link></li>
               <li><Link href="/contact">Contact</Link></li>
-              <li><Link href="/account">Account</Link></li>
+              <li><Link href="/track-order">Track Order</Link></li>
             </ul>
           </div>
 

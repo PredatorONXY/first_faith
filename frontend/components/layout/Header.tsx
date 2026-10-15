@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import brandMark from '../../img/logo_main.png';
 import { usePathname } from 'next/navigation';
-import { getAccessToken } from '../../lib/api';
 import { useCart } from '../../hooks/useCart';
 
 const NAV_LINKS = [
@@ -20,19 +19,16 @@ export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
   const currentPath = pathname ?? '';
-  const [signedIn, setSignedIn] = useState(false);
   const { cart, refresh } = useCart();
   const cartCount = cart?.items.reduce((total, item) => total + item.quantity, 0) ?? 0;
 
   useEffect(() => {
-    const syncAuth = () => {
-      setSignedIn(Boolean(getAccessToken()));
+    const handleCartSync = () => {
       refresh().catch(() => {});
     };
-    syncAuth();
-    window.addEventListener('ff:auth-changed', syncAuth);
+    window.addEventListener('ff:auth-changed', handleCartSync);
     return () => {
-      window.removeEventListener('ff:auth-changed', syncAuth);
+      window.removeEventListener('ff:auth-changed', handleCartSync);
     };
   }, [refresh]);
 
@@ -90,14 +86,12 @@ export function Header() {
         </nav>
 
         <div className="header-actions">
-          {signedIn && (
-            <Link
-              href="/account"
-              className={`header-action-link ${currentPath.startsWith('/account') ? 'is-active' : ''}`}
-            >
-              My account
-            </Link>
-          )}
+          <Link
+            href="/track-order"
+            className={`header-action-link ${currentPath.startsWith('/track-order') ? 'is-active' : ''}`}
+          >
+            Track Order
+          </Link>
           <Link
             href="/cart"
             className={`header-action-link ${currentPath.startsWith('/cart') ? 'is-active' : ''}`}
@@ -139,11 +133,13 @@ export function Header() {
           >
             🎁 1+1 Skincare Offer
           </Link>
-          {signedIn && (
-            <Link href="/account" className="mobile-link" onClick={() => setMenuOpen(false)}>
-              My account
-            </Link>
-          )}
+          <Link
+            href="/track-order"
+            className={`mobile-link ${currentPath.startsWith('/track-order') ? 'is-active' : ''}`}
+            onClick={() => setMenuOpen(false)}
+          >
+            Track Order
+          </Link>
           <Link href="/cart" className="mobile-link" onClick={() => setMenuOpen(false)}>
             Cart {cartCount > 0 && <span className="cart-count-badge">{cartCount}</span>}
           </Link>

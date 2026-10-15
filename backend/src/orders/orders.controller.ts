@@ -12,14 +12,32 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength, ValidateNested } from 'class-validator';
+import { IsEnum, IsIn, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { OrderStatus, PaymentProvider, Role } from '@prisma/client';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { OrdersService } from './orders.service';
+
+export class TrackOrderLookupDto {
+  @IsString()
+  @IsNotEmpty()
+  @IsIn(['PHONE', 'EMAIL', 'phone', 'email'], { message: 'Type must be phone or email' })
+  type!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  value!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  orderNumber?: string;
+}
 
 export class GuestCustomerDto {
   @IsString()
@@ -158,5 +176,20 @@ export class OrdersController {
     const user = (req as any)?.user;
     const isAdmin = user?.role === Role.ADMIN || user?.role === Role.SUPER_ADMIN;
     return this.ordersService.findOne(id, guestToken, user?.id, isAdmin);
+  }
+
+  @Post('track')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  trackOrdersLookup(@Body() dto: TrackOrderLookupDto) {
+    return this.ordersService.trackOrdersLookup(dto);
+  }
+
+  @Get('track/:id')
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  trackOrderDetail(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query('token') token: string,
+  ) {
+    return this.ordersService.trackOrderDetail(id, token);
   }
 }
