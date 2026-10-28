@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
 
 export interface AdminOrderAlertData {
   orderId: string;
@@ -47,6 +48,7 @@ export interface AdminOrderAlertData {
   totalAmount: number | string;
   paymentStatus: string;
   orderStatus: string;
+  isTest?: boolean;
 }
 
 export interface EmailSendResult {
@@ -55,17 +57,78 @@ export interface EmailSendResult {
   statusCode?: number;
   error?: string;
   duplicate?: boolean;
+  provider?: 'smtp' | 'resend';
+  response?: string;
+  accepted?: string[];
+  rejected?: string[];
 }
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly sentOrderAlerts = new Set<string>();
+  private transporter: nodemailer.Transporter | null = null;
 
   constructor(private readonly config: ConfigService) {}
 
   clearDispatchedCache(): void {
     this.sentOrderAlerts.clear();
+  }
+
+  getTransporter(): nodemailer.Transporter | null {
+    if (this.transporter) {
+      return this.transporter;
+    }
+
+    const host = this.config.get<string>('SMTP_HOST')?.trim();
+    const user = this.config.get<string>('SMTP_USER')?.trim() || this.config.get<string>('EMAIL_FROM')?.trim();
+    const rawPass = this.config.get<string>('SMTP_PASS')?.trim();
+
+    if (!host || !user || !rawPass) {
+      return null;
+    }
+
+    const port = Number(this.config.get<string | number>('SMTP_PORT')) || 465;
+    const secure = this.config.get<string>('SMTP_SECURE') === 'true' || port === 465;
+    const cleanPass = rawPass.replace(/["'\s]/g, '');
+
+    this.transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: {
+        user,
+        pass: cleanPass,
+      },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000,
+    });
+
+    return this.transporter;
+  }
+
+  setTransporter(transporter: nodemailer.Transporter | null): void {
+    this.transporter = transporter;
+  }
+
+  private getFromAddress(): string {
+    const configuredFrom =
+      this.config.get<string>('EMAIL_FROM')?.trim() ||
+      this.config.get<string>('SMTP_USER')?.trim() ||
+      this.config.get<string>('RESEND_FROM_EMAIL')?.trim() ||
+      'First Faith <firstfaithservices@gmail.com>';
+
+    return configuredFrom.includes('<') ? configuredFrom : `First Faith <${configuredFrom}>`;
+  }
+
+  private getAdminRecipientEmail(): string {
+    return (
+      this.config.get<string>('ADMIN_EMAIL')?.trim() ||
+      this.config.get<string>('ADMIN_NOTIFICATION_EMAIL')?.trim() ||
+      this.config.get<string>('ADMIN_ALERT_EMAIL')?.trim() ||
+      'officialfirstfaith@gmail.com'
+    );
   }
 
   private escapeHtml(str: string): string {
@@ -78,17 +141,7 @@ export class EmailService {
   }
 
   async sendVerificationEmail(toEmail: string, fullName: string | undefined, verificationUrl: string): Promise<void> {
-    const apiKey = this.config.get<string>('RESEND_API_KEY')?.trim();
-    const fromAddress =
-      this.config.get<string>('RESEND_FROM_EMAIL')?.trim() ||
-      this.config.get<string>('EMAIL_FROM')?.trim() ||
-      'First Faith <onboarding@resend.dev>';
-
-    if (!apiKey) {
-      this.logger.error('[EMAIL] RESEND_API_KEY is not configured');
-      throw new InternalServerErrorException('Email service configuration error');
-    }
-
+    const fromAddress = this.getFromAddress();
     const greeting = fullName ? `Hello ${this.escapeHtml(fullName)},` : 'Hello,';
 
     const htmlContent = `
@@ -166,6 +219,32 @@ export class EmailService {
 </html>
     `.trim();
 
+    const transporter = this.getTransporter();
+    if (transporter) {
+      try {
+        await transporter.sendMail({
+          from: fromAddress,
+          to: toEmail,
+          subject: 'Verify your email address — First Faith',
+          html: htmlContent,
+        });
+        this.logger.log(`[EMAIL] Verification email sent via Gmail SMTP to ${toEmail}`);
+        return;
+      } catch (err: any) {
+        this.logger.error(`[EMAIL] Failed to send verification email via Gmail SMTP: ${err.message}`);
+        if (!this.config.get<string>('RESEND_API_KEY')?.trim()) {
+          throw new InternalServerErrorException('Unable to send verification email at this time');
+        }
+        this.logger.log(`[EMAIL] Attempting fallback to Resend for verification email to ${toEmail}...`);
+      }
+    }
+
+    const apiKey = this.config.get<string>('RESEND_API_KEY')?.trim();
+    if (!apiKey) {
+      this.logger.error('[EMAIL] Neither SMTP nor RESEND_API_KEY is configured');
+      throw new InternalServerErrorException('Email service configuration error');
+    }
+
     try {
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -212,20 +291,15 @@ export class EmailService {
   }
 
   async sendAdminNewOrderEmail(data: AdminOrderAlertData): Promise<EmailSendResult> {
+    const transporter = this.getTransporter();
     const apiKey = this.config.get<string>('RESEND_API_KEY')?.trim();
-    const fromAddress =
-      this.config.get<string>('RESEND_FROM_EMAIL')?.trim() ||
-      this.config.get<string>('EMAIL_FROM')?.trim() ||
-      'First Faith <onboarding@resend.dev>';
-    const adminEmail =
-      this.config.get<string>('ADMIN_NOTIFICATION_EMAIL')?.trim() ||
-      this.config.get<string>('ADMIN_ALERT_EMAIL')?.trim() ||
-      'officialfirstfaith@gmail.com';
+    const fromAddress = this.getFromAddress();
+    const adminEmail = this.getAdminRecipientEmail();
     const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'https://firstfaith.in';
     const orderUrl = `${frontendUrl.replace(/\/$/, '')}/admin/orders/${data.orderId}`;
 
-    if (!apiKey) {
-      this.logger.warn(`[EMAIL] RESEND_API_KEY is not configured; skipping admin order alert email for #${data.orderNumber}`);
+    if (!transporter && !apiKey) {
+      this.logger.warn(`[EMAIL] Neither SMTP nor RESEND_API_KEY is configured; skipping admin order alert email for #${data.orderNumber}`);
       return { success: false, error: 'RESEND_API_KEY not configured' };
     }
 
@@ -234,7 +308,9 @@ export class EmailService {
       return { success: true, duplicate: true };
     }
 
-    const emailSubject = `First Faith — New Paid Order Alert #${data.orderNumber}`;
+    const emailSubject = data.isTest
+      ? `[TEST ORDER — NO REAL PURCHASE] First Faith — New Paid Order Alert #${data.orderNumber}`
+      : `First Faith — New Paid Order Alert #${data.orderNumber}`;
 
     const numTotal = Number(data.totalAmount || 0);
     const formattedTotal = `₹${numTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -342,11 +418,20 @@ export class EmailService {
           <!-- Main Content -->
           <tr>
             <td style="padding: 32px 36px;">
+              ${data.isTest ? `
+              <div style="background-color: #FEF3C7; border: 2px dashed #D97706; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; text-align: center; color: #92400E;">
+                <p style="margin: 0; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">
+                  ⚠️ TEST ORDER — NO REAL PURCHASE
+                </p>
+                <p style="margin: 4px 0 0; font-size: 12px; color: #78350F; line-height: 1.4;">
+                  This is an automated test order notification simulating a customer purchase. No payment was charged, no order was created in the database, and inventory was not altered.
+                </p>
+              </div>` : ''}
               <h1 style="margin: 0 0 8px; font-size: 22px; font-weight: 600; color: #201C1B; line-height: 1.3;">
-                New Paid Order Alert
+                ${data.isTest ? '[TEST] New Paid Order Alert' : 'New Paid Order Alert'}
               </h1>
               <p style="margin: 0 0 24px; font-size: 14px; line-height: 1.6; color: #4E4844;">
-                A new order has been paid and confirmed on First Faith. Order details:
+                ${data.isTest ? 'Simulated customer purchase order details for email delivery verification:' : 'A new order has been paid and confirmed on First Faith. Order details:'}
               </p>
 
               <!-- Order Summary Table -->
@@ -485,6 +570,43 @@ export class EmailService {
 </html>
     `.trim();
 
+    if (transporter) {
+      try {
+        const info = await transporter.sendMail({
+          from: fromAddress,
+          to: adminEmail,
+          subject: emailSubject,
+          html: htmlContent,
+        });
+
+        this.sentOrderAlerts.add(data.orderId);
+        this.logger.log(
+          `[EMAIL] Admin order alert email successfully accepted by Gmail SMTP (messageId: ${info.messageId || 'ok'}, response: ${info.response || ''}) for #${data.orderNumber} to ${adminEmail}`,
+        );
+        return {
+          success: true,
+          messageId: info.messageId,
+          provider: 'smtp',
+          response: info.response,
+          accepted: info.accepted as string[],
+          rejected: info.rejected as string[],
+        };
+      } catch (smtpErr: any) {
+        this.logger.error(
+          `[EMAIL] Gmail SMTP order alert failed for #${data.orderNumber} to ${adminEmail}: ${smtpErr.message}`,
+        );
+
+        if (!apiKey) {
+          return {
+            success: false,
+            provider: 'smtp',
+            error: smtpErr.message,
+          };
+        }
+        this.logger.log(`[EMAIL] Attempting fallback to Resend for #${data.orderNumber}...`);
+      }
+    }
+
     try {
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -545,6 +667,7 @@ export class EmailService {
       return {
         success: true,
         messageId: responseData?.id,
+        provider: 'resend',
       };
     } catch (err: any) {
       this.logger.error(`[EMAIL] Admin order alert email network failure for #${data.orderNumber}: ${err.message}`);

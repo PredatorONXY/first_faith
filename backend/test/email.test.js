@@ -254,6 +254,223 @@ describe('Resend Email Notification Integration Tests', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('fetch failed: ECONNREFUSED');
     });
+
+    test('6. Dispatches admin order alert via Gmail SMTP when SMTP is configured', async () => {
+      const mockTransporter = {
+        sendMail: jest.fn().mockResolvedValue({
+          messageId: 'smtp_msg_789',
+          response: '250 2.0.0 OK',
+        }),
+      };
+
+      const config = createMockConfig({
+        SMTP_HOST: 'smtp.gmail.com',
+        SMTP_PORT: '465',
+        SMTP_SECURE: 'true',
+        SMTP_USER: 'firstfaithservices@gmail.com',
+        SMTP_PASS: 'test-app-pass',
+        EMAIL_FROM: 'firstfaithservices@gmail.com',
+        ADMIN_EMAIL: 'officialfirstfaith@gmail.com',
+      });
+
+      const emailService = new EmailService(config);
+      emailService.setTransporter(mockTransporter);
+
+      const result = await emailService.sendAdminNewOrderEmail({
+        orderId: 'smtp_order_101',
+        orderNumber: 'FF-SMTP-101',
+        customerName: 'Aarav Mehta',
+        customerEmail: 'aarav@example.com',
+        customerPhone: '+91 9123456789',
+        shippingAddress: {
+          name: 'Aarav Mehta',
+          line1: '12 Marine Drive',
+          city: 'Mumbai',
+          state: 'Maharashtra',
+          postalCode: '400020',
+          country: 'IN',
+        },
+        paymentMethod: 'RAZORPAY',
+        orderDate: new Date('2026-10-28T12:00:00Z'),
+        itemCount: 2,
+        items: [
+          {
+            productName: 'Clarifying Clay Mask',
+            variantLabel: '100g',
+            quantity: 1,
+            unitPrice: 695,
+            lineTotal: 695,
+            isFreeItem: false,
+          },
+          {
+            productName: 'Gentle Hydrating Cleanser',
+            variantLabel: '150ml',
+            quantity: 1,
+            unitPrice: 525,
+            lineTotal: 0,
+            isFreeItem: true,
+          },
+        ],
+        promotionName: 'FIRST FAITH 1+1 SKINCARE OFFER',
+        promotionDiscount: 525,
+        subtotal: 1220,
+        taxableAmount: 588.98,
+        taxTotal: 106.02,
+        cgst: 53.01,
+        sgst: 53.01,
+        shippingFee: 0,
+        totalAmount: 695,
+        paymentStatus: PaymentStatus.CAPTURED,
+        orderStatus: OrderStatus.PAID,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.messageId).toBe('smtp_msg_789');
+      expect(mockTransporter.sendMail).toHaveBeenCalledTimes(1);
+
+      const mailOptions = mockTransporter.sendMail.mock.calls[0][0];
+      expect(mailOptions.to).toBe('officialfirstfaith@gmail.com');
+      expect(mailOptions.from).toBe('First Faith <firstfaithservices@gmail.com>');
+      expect(mailOptions.subject).toContain('FF-SMTP-101');
+      expect(mailOptions.html).toContain('FF-SMTP-101');
+      expect(mailOptions.html).toContain('Aarav Mehta');
+      expect(mailOptions.html).toContain('Clarifying Clay Mask');
+      expect(mailOptions.html).toContain('1+1 FREE');
+      expect(mailOptions.html).toContain('₹695.00');
+    });
+
+    test('7. Prevents duplicate SMTP dispatches for the same orderId', async () => {
+      const mockTransporter = {
+        sendMail: jest.fn().mockResolvedValue({
+          messageId: 'smtp_msg_dup',
+          response: '250 2.0.0 OK',
+        }),
+      };
+
+      const config = createMockConfig({
+        SMTP_HOST: 'smtp.gmail.com',
+        SMTP_USER: 'firstfaithservices@gmail.com',
+        SMTP_PASS: 'test-app-pass',
+        ADMIN_EMAIL: 'officialfirstfaith@gmail.com',
+      });
+
+      const emailService = new EmailService(config);
+      emailService.setTransporter(mockTransporter);
+
+      const orderData = {
+        orderId: 'smtp_dup_order',
+        orderNumber: 'FF-DUP-SMTP',
+        customerEmail: 'dup@example.com',
+        orderDate: new Date(),
+        itemCount: 1,
+        totalAmount: 695,
+        paymentStatus: PaymentStatus.CAPTURED,
+        orderStatus: OrderStatus.PAID,
+      };
+
+      const res1 = await emailService.sendAdminNewOrderEmail(orderData);
+      expect(res1.success).toBe(true);
+      expect(mockTransporter.sendMail).toHaveBeenCalledTimes(1);
+
+      // Duplicate attempt
+      const res2 = await emailService.sendAdminNewOrderEmail(orderData);
+      expect(res2.success).toBe(true);
+      expect(res2.duplicate).toBe(true);
+      expect(mockTransporter.sendMail).toHaveBeenCalledTimes(1); // not called again
+    });
+
+    test('8. Falls back to Resend if Gmail SMTP fails and RESEND_API_KEY is available', async () => {
+      const mockTransporter = {
+        sendMail: jest.fn().mockRejectedValue(new Error('SMTP timeout: connection refused')),
+      };
+
+      global.fetch = jest.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'resend_fallback_success' }),
+      }));
+
+      const config = createMockConfig({
+        SMTP_HOST: 'smtp.gmail.com',
+        SMTP_USER: 'firstfaithservices@gmail.com',
+        SMTP_PASS: 'test-app-pass',
+        RESEND_API_KEY: 're_fallback_key',
+        ADMIN_EMAIL: 'officialfirstfaith@gmail.com',
+      });
+
+      const emailService = new EmailService(config);
+      emailService.setTransporter(mockTransporter);
+
+      const result = await emailService.sendAdminNewOrderEmail({
+        orderId: 'fallback_order_id',
+        orderNumber: 'FF-FALLBACK-1',
+        customerEmail: 'fallback@example.com',
+        orderDate: new Date(),
+        itemCount: 1,
+        totalAmount: 695,
+        paymentStatus: PaymentStatus.CAPTURED,
+        orderStatus: OrderStatus.PAID,
+      });
+
+      expect(mockTransporter.sendMail).toHaveBeenCalledTimes(1);
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(result.success).toBe(true);
+      expect(result.messageId).toBe('resend_fallback_success');
+    });
+
+    test('9. Safely returns error without throwing if SMTP fails and no Resend key is configured', async () => {
+      const mockTransporter = {
+        sendMail: jest.fn().mockRejectedValue(new Error('SMTP EAUTH Invalid credentials')),
+      };
+
+      const config = createMockConfig({
+        SMTP_HOST: 'smtp.gmail.com',
+        SMTP_USER: 'firstfaithservices@gmail.com',
+        SMTP_PASS: 'test-app-pass',
+        ADMIN_EMAIL: 'officialfirstfaith@gmail.com',
+      });
+
+      const emailService = new EmailService(config);
+      emailService.setTransporter(mockTransporter);
+
+      const result = await emailService.sendAdminNewOrderEmail({
+        orderId: 'smtp_fail_no_resend',
+        orderNumber: 'FF-FAIL-SMTP',
+        customerEmail: 'fail@example.com',
+        orderDate: new Date(),
+        itemCount: 1,
+        totalAmount: 695,
+        paymentStatus: PaymentStatus.CAPTURED,
+        orderStatus: OrderStatus.PAID,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('SMTP EAUTH Invalid credentials');
+    });
+
+    test('10. Dispatches verification email via Gmail SMTP', async () => {
+      const mockTransporter = {
+        sendMail: jest.fn().mockResolvedValue({ messageId: 'smtp_verify_msg_1' }),
+      };
+
+      const config = createMockConfig({
+        SMTP_HOST: 'smtp.gmail.com',
+        SMTP_USER: 'firstfaithservices@gmail.com',
+        SMTP_PASS: 'test-app-pass',
+      });
+
+      const emailService = new EmailService(config);
+      emailService.setTransporter(mockTransporter);
+
+      await emailService.sendVerificationEmail('customer@example.com', 'Deepak', 'https://firstfaith.in/verify?token=1234');
+
+      expect(mockTransporter.sendMail).toHaveBeenCalledTimes(1);
+      const call = mockTransporter.sendMail.mock.calls[0][0];
+      expect(call.to).toBe('customer@example.com');
+      expect(call.subject).toContain('Verify your email');
+      expect(call.html).toContain('Deepak');
+      expect(call.html).toContain('https://firstfaith.in/verify?token=1234');
+    });
   });
 
   describe('RazorpayService & Webhook Email Triggering', () => {

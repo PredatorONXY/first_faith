@@ -50,6 +50,7 @@ const nextConfig = {
       'google-auth-library',
       'helmet',
       'razorpay',
+      'nodemailer',
       'reflect-metadata',
     ],
     outputFileTracingIncludes: {
@@ -80,6 +81,7 @@ const nextConfig = {
               request === 'bcryptjs' ||
               request === 'helmet' ||
               request === 'razorpay' ||
+              request === 'nodemailer' ||
               request.includes('backend/dist'))
           ) {
             return callback(null, `commonjs ${request}`);

@@ -16,6 +16,8 @@
     "build:frontend": "NODE_ENV=production npm run build --prefix frontend",
     "build": "npm run prisma:generate --prefix backend && npm run build --prefix backend && NODE_ENV=production npm run build --prefix frontend",
     "test": "npm run test --prefix backend",
+    "test:smtp": "npm run test:smtp --prefix backend",
+    "test:order-email": "npm run test:order-email --prefix backend",
     "start": "npm run start:prod --prefix backend"
   },
   "devDependencies": {
